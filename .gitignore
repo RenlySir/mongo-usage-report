@@ -1,0 +1,7 @@
+target/
+.DS_Store
+.venv-service-tests/
+*.class
+.idea/
+*.iml
+reports/
