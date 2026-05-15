@@ -8,7 +8,7 @@
     <artifactId>mongo-usage-collector</artifactId>
     <version>0.1.0</version>
     <name>MongoDB Usage Collector</name>
-    <description>Collect MongoDB usage information for replacement assessment.</description>
+    <description>Collect MongoDB inventory and workload signals to Excel.</description>
 
     <properties>
         <maven.compiler.release>17</maven.compiler.release>

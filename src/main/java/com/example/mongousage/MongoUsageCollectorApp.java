@@ -1,10 +1,10 @@
 package com.example.mongousage;
 
-import com.example.mongousage.analysis.FeatureAnalyzer;
 import com.example.mongousage.config.CollectorOptions;
+import com.example.mongousage.io.CollectExcelWriter;
+import com.example.mongousage.io.CollectJsonWriter;
 import com.example.mongousage.model.UsageReport;
 import com.example.mongousage.mongo.MongoCollector;
-import com.example.mongousage.report.ReportWriter;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -18,7 +18,7 @@ import java.util.concurrent.Callable;
         name = "mongo-usage-collector",
         mixinStandardHelpOptions = true,
         version = "mongo-usage-collector 0.1.0",
-        description = "Collect MongoDB usage information for replacement assessment."
+        description = "Collect MongoDB inventory and workload signals (Excel output)."
 )
 public class MongoUsageCollectorApp implements Callable<Integer> {
     @Option(names = "--uri", description = "MongoDB connection string.", required = true)
@@ -57,9 +57,10 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
     public Integer call() throws Exception {
         CollectorOptions options = toOptions();
         UsageReport report = new MongoCollector(options).collect();
-        report.setFeatureFindings(new FeatureAnalyzer().analyze(report));
-        new ReportWriter().write(report, outputDirectory);
-        System.out.printf("MongoDB usage report written to %s%n", outputDirectory.toAbsolutePath());
+        new CollectJsonWriter().write(report, outputDirectory);
+        Path excelFile = outputDirectory.resolve("mongo-usage-report.xlsx");
+        new CollectExcelWriter().write(report, excelFile);
+        System.out.printf("MongoDB usage Excel written to %s%n", excelFile.toAbsolutePath());
         return 0;
     }
 

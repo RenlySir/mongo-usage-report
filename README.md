@@ -1,6 +1,6 @@
 # MongoDB Usage Collector
 
-Java 17 executable collector for MongoDB replacement assessment. It gathers inventory, feature usage, workload signals, and risk findings from a MongoDB-compatible endpoint.
+Java 17 CLI that **collects** MongoDB migration assessment data and writes an Excel report. It is aligned with the migration questionnaire: deployment mode, version/configuration, database and collection scale, indexes, runtime counters, profiler/currentOp workload samples, and de-duplicated query shapes. Default mode is read-only.
 
 ## Build
 
@@ -8,15 +8,15 @@ Java 17 executable collector for MongoDB replacement assessment. It gathers inve
 mvn package
 ```
 
-The executable fat JAR is generated at:
+Fat JAR:
 
 ```text
 target/mongo-usage-collector.jar
 ```
 
-## Safe Default Run
+## Run
 
-Default mode is read-only. It does not enable profiler, does not modify indexes, users, roles, or replica-set settings, and does not export collection documents.
+Read-only: no profiler changes, no index or user changes, no collection document export.
 
 ```bash
 java -jar target/mongo-usage-collector.jar \
@@ -24,22 +24,29 @@ java -jar target/mongo-usage-collector.jar \
   --out ./mongo-usage-report
 ```
 
-Generated files:
+Output:
 
 ```text
 mongo-usage-report/
-  inventory.json
-  features.json
-  workload.json
-  raw.json
-  summary.md
-  risk-matrix.csv
-  mongo-usage-report.xlsx
+  mongo-usage-report.xlsx  # Excel workbook for delivery and review
+  raw.json          # full collected report
+  inventory.json    # summary + databases tree
+  workload.json     # profiler samples (may be empty if profiling is off)
 ```
 
-## Optional Profiler Sampling
+The Excel workbook contains these sheets: `Overview`, `Deployment`, `Runtime Metrics`, `Databases`, `Collections`, `Indexes`, `Query Shapes`, `Workload`, and `Command Errors`.
 
-Use profiler sampling only with explicit approval from the customer. The tool records current profiling settings per database, sets profiler level 1 with the requested `slowms`, sleeps for the requested period, then restores the original settings.
+## What it collects
+
+- Deployment: standalone / replica set / sharding hints, replica set name, primary, hosts, arbiters, storage engine, FCV, `replSetGetStatus`, `listShards`, `getCmdLineOpts`, `hostInfo`.
+- Runtime and load: `serverStatus` connection counters, opcounters, network bytes, memory, WiredTiger cache where available.
+- Inventory: databases, collections, collection stats, indexes, index stats, plan cache stats where supported.
+- Workload: existing `system.profile` rows, optional profiler sampling, and active operations from `currentOp`.
+- Query usage: normalized query shapes with literal values replaced by `?`, so the same query pattern with different parameters is de-duplicated and aggregated.
+
+## Optional profiler sampling
+
+Use only with explicit approval. The tool records current profiling settings per database, sets profiler level 1 with the requested `slowms`, waits, then restores the original settings.
 
 ```bash
 java -jar target/mongo-usage-collector.jar \
@@ -50,9 +57,7 @@ java -jar target/mongo-usage-collector.jar \
   --slow-ms 50
 ```
 
-The Excel workbook contains these sheets: `Overview`, `Databases`, `Collections`, `Indexes`, `Features`, `Workload`, and `Command Errors`.
-
-## Useful Options
+## Options
 
 ```text
 --include-dbs db1,db2      Only collect listed databases.
@@ -61,11 +66,4 @@ The Excel workbook contains these sheets: `Overview`, `Databases`, `Collections`
 --redact / --no-redact     Redact sensitive command fields. Defaults to enabled.
 ```
 
-## What It Detects
-
-- Collection features: validators, JSON Schema, views, capped collections, time series.
-- Index features: TTL, unique, partial, collation, text, 2dsphere/2d, hashed, wildcard.
-- Workload features from profiler samples: aggregation stages, transactions, Change Streams, text search, geospatial queries, array filter updates.
-- Operational signals: database stats, collection stats, index stats, plan cache stats, server status when permissions allow.
-
-Command failures caused by permissions or server incompatibility are recorded in `raw.json` and do not abort the whole collection.
+Command failures from permissions or server differences are recorded in both the Excel `Command Errors` sheet and `raw.json`; they do not abort the run.
