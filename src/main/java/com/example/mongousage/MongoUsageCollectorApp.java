@@ -7,6 +7,8 @@ import com.example.mongousage.io.CompatTestExcelWriter;
 import com.example.mongousage.io.CompatTestJsonWriter;
 import com.example.mongousage.io.CollectExcelWriter;
 import com.example.mongousage.io.CollectJsonWriter;
+import com.example.mongousage.io.UsageReportJsonReader;
+import com.example.mongousage.io.UsageSummaryExcelWriter;
 import com.example.mongousage.model.UsageReport;
 import com.example.mongousage.mongo.MongoCollector;
 import com.mongodb.client.MongoClients;
@@ -26,7 +28,8 @@ import java.util.concurrent.Callable;
         description = "Run MongoDB migration assessment tools.",
         subcommands = {
                 MongoUsageCollectorApp.CollectCommand.class,
-                MongoUsageCollectorApp.CompatTestCommand.class
+                MongoUsageCollectorApp.CompatTestCommand.class,
+                MongoUsageCollectorApp.SummarizeCommand.class
         }
 )
 public class MongoUsageCollectorApp implements Callable<Integer> {
@@ -139,6 +142,29 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
                         compatReport.total(), compatReport.passed(), compatReport.failed(), compatReport.skipped());
                 return compatReport.isSuccess() ? 0 : 2;
             }
+        }
+    }
+
+    @Command(
+            name = "summarize",
+            mixinStandardHelpOptions = true,
+            description = "Read an existing collect output directory and generate a summarized Excel workbook."
+    )
+    static class SummarizeCommand implements Callable<Integer> {
+        @Option(names = "--report-dir", description = "Directory produced by the collect command.", defaultValue = "mongo-usage-report")
+        private Path reportDirectory;
+
+        @Option(names = "--out", description = "Summary Excel file path. Defaults to <report-dir>/mongo-usage-summary.xlsx.")
+        private Path outputFile;
+
+        @Override
+        public Integer call() throws Exception {
+            Path rawJson = reportDirectory.resolve("raw.json");
+            Path summaryFile = outputFile == null ? reportDirectory.resolve("mongo-usage-summary.xlsx") : outputFile;
+            UsageReport report = new UsageReportJsonReader().read(rawJson);
+            new UsageSummaryExcelWriter().write(report, summaryFile);
+            System.out.printf("MongoDB usage summary Excel written to %s%n", summaryFile.toAbsolutePath());
+            return 0;
         }
     }
 }

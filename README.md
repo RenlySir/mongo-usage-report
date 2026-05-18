@@ -16,11 +16,12 @@ target/mongo-usage-collector.jar
 
 ## Run
 
-The JAR has two independent commands. Use `collect` for read-only information collection. Use `compat-test` when you intentionally want the tool to create schema, generate data, and run automated MongoDB feature tests.
+The JAR has three independent commands. Use `collect` for read-only information collection. Use `summarize` to summarize an existing `collect` output directory into a review-oriented Excel workbook. Use `compat-test` when you intentionally want the tool to create schema, generate data, and run automated MongoDB feature tests.
 
 ```bash
 java -jar target/mongo-usage-collector.jar --help
 java -jar target/mongo-usage-collector.jar collect --help
+java -jar target/mongo-usage-collector.jar summarize --help
 java -jar target/mongo-usage-collector.jar compat-test --help
 ```
 
@@ -46,6 +47,24 @@ mongo-usage-report/
 ```
 
 The Excel workbook contains these sheets: `Overview`, `Deployment`, `Runtime Metrics`, `Databases`, `Collections`, `Indexes`, `Namespace Usage`, `Query Stats`, `Query Shapes`, `Workload`, and `Command Errors`.
+
+## Summarize collected report
+
+After `collect` has written a `mongo-usage-report` directory, use `summarize` to generate a compact summary workbook from the existing `raw.json`. This command does not connect to MongoDB and does not collect new data.
+
+```bash
+java -jar target/mongo-usage-collector.jar summarize \
+  --report-dir ./mongo-usage-report
+```
+
+Output:
+
+```text
+mongo-usage-report/
+  mongo-usage-summary.xlsx  # summarized workbook for migration review
+```
+
+The summary workbook contains these sheets: `Executive Summary`, `Feature Summary`, `Top Collections`, `Top Query Shapes`, and `Risks`. It is intended for quick review after collection: deployment mode, version, scale, detected feature usage, largest collections, slowest or most sampled query shapes, and high-signal migration review items.
 
 ## What it collects
 
@@ -131,6 +150,13 @@ By default the temporary test database is dropped after the run. Add `--keep-com
 --profile-seconds 300      Profiler sampling window when --enable-profiler is set.
 --slow-ms 50               Profiler slowms when --enable-profiler is set.
 --redact / --no-redact     Redact sensitive command fields. Defaults to enabled.
+```
+
+`summarize` options:
+
+```text
+--report-dir ./dir          Directory produced by collect. Defaults to mongo-usage-report.
+--out ./summary.xlsx        Optional summary Excel output file. Defaults to <report-dir>/mongo-usage-summary.xlsx.
 ```
 
 `compat-test` options:
