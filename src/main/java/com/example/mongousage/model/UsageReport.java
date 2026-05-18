@@ -9,10 +9,15 @@ import java.util.List;
 public class UsageReport {
     private Instant generatedAt = Instant.now();
     private String target;
+    private String requestedMongoVersion;
     private DeploymentInfo deploymentInfo = new DeploymentInfo();
     private Document buildInfo = new Document();
     private Document hello = new Document();
     private Document serverStatus = new Document();
+    private Document connectionStatus = new Document();
+    private Document defaultReadWriteConcern = new Document();
+    private List<Document> namespaceUsage = new ArrayList<>();
+    private List<Document> queryStats = new ArrayList<>();
     private List<DatabaseInfo> databases = new ArrayList<>();
     private List<ProfileSample> profileSamples = new ArrayList<>();
     private List<QueryShape> queryShapes = new ArrayList<>();
@@ -33,6 +38,14 @@ public class UsageReport {
 
     public void setTarget(String target) {
         this.target = target;
+    }
+
+    public String getRequestedMongoVersion() {
+        return requestedMongoVersion;
+    }
+
+    public void setRequestedMongoVersion(String requestedMongoVersion) {
+        this.requestedMongoVersion = requestedMongoVersion;
     }
 
     public DeploymentInfo getDeploymentInfo() {
@@ -65,6 +78,38 @@ public class UsageReport {
 
     public void setServerStatus(Document serverStatus) {
         this.serverStatus = serverStatus == null ? new Document() : serverStatus;
+    }
+
+    public Document getConnectionStatus() {
+        return connectionStatus;
+    }
+
+    public void setConnectionStatus(Document connectionStatus) {
+        this.connectionStatus = connectionStatus == null ? new Document() : connectionStatus;
+    }
+
+    public Document getDefaultReadWriteConcern() {
+        return defaultReadWriteConcern;
+    }
+
+    public void setDefaultReadWriteConcern(Document defaultReadWriteConcern) {
+        this.defaultReadWriteConcern = defaultReadWriteConcern == null ? new Document() : defaultReadWriteConcern;
+    }
+
+    public List<Document> getNamespaceUsage() {
+        return namespaceUsage;
+    }
+
+    public void setNamespaceUsage(List<Document> namespaceUsage) {
+        this.namespaceUsage = namespaceUsage == null ? new ArrayList<>() : namespaceUsage;
+    }
+
+    public List<Document> getQueryStats() {
+        return queryStats;
+    }
+
+    public void setQueryStats(List<Document> queryStats) {
+        this.queryStats = queryStats == null ? new ArrayList<>() : queryStats;
     }
 
     public List<DatabaseInfo> getDatabases() {

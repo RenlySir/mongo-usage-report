@@ -22,8 +22,12 @@ class SampleExcelReportGeneratorTest {
         UsageReport report = new UsageReport();
         report.setGeneratedAt(Instant.parse("2026-05-15T08:00:00Z"));
         report.setTarget("mongodb://sampleUser:****@sample-host:27017/admin");
+        report.setRequestedMongoVersion("7.0.0");
         report.setBuildInfo(new Document("version", "7.0.11").append("gitVersion", "sample"));
         report.setHello(new Document("ok", 1).append("maxWireVersion", 21));
+        report.setConnectionStatus(new Document("authInfo", new Document("authenticatedUsers", List.of(new Document("user", "sampleUser").append("db", "admin")))));
+        report.setDefaultReadWriteConcern(new Document("defaultReadConcern", new Document("level", "majority"))
+                .append("defaultWriteConcern", new Document("w", "majority")));
         DeploymentInfo deployment = new DeploymentInfo();
         deployment.setDeploymentMode("replicaSet");
         deployment.setReplicaSetName("rs0");
@@ -88,6 +92,11 @@ class SampleExcelReportGeneratorTest {
         aggregateSample.setNreturned(1000);
         report.setProfileSamples(List.of(findSample, similarFindSample, aggregateSample));
         report.setQueryShapes(new QueryShapeAnalyzer().analyze(report.getProfileSamples()));
+        report.setNamespaceUsage(List.of(new Document("namespace", "shop.orders")
+                .append("usage", new Document("readLock", new Document("time", 1000).append("count", 42))
+                        .append("writeLock", new Document("time", 500).append("count", 12)))));
+        report.setQueryStats(List.of(new Document("key", new Document("queryShape", "find orders by status"))
+                .append("metrics", new Document("execCount", 2).append("totalExecMicros", 167000))));
         report.setCommandErrors(List.of(new CommandError("shop.orders", "$planCacheStats", "Sample: command not available on target service")));
 
         new CollectExcelWriter().write(report, Path.of("target/sample-data-excel-report/mongo-usage-report.xlsx"));

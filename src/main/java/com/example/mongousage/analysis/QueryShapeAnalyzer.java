@@ -13,6 +13,13 @@ import java.util.Map;
 import java.util.Set;
 
 public class QueryShapeAnalyzer {
+    private static final Set<String> LITERAL_PRESERVING_KEYS = Set.of(
+            "find", "aggregate", "count", "distinct", "insert", "update", "delete", "findAndModify",
+            "sort", "projection", "hint", "collation", "limit", "skip", "batchSize", "singleBatch",
+            "readConcern", "writeConcern", "readPreference", "maxTimeMS", "allowDiskUse",
+            "ordered", "multi", "upsert", "returnNewDocument", "returnDocument"
+    );
+
     public List<QueryShape> analyze(List<ProfileSample> samples) {
         Map<String, Accumulator> groups = new LinkedHashMap<>();
         for (ProfileSample sample : samples) {
@@ -50,8 +57,7 @@ public class QueryShapeAnalyzer {
     }
 
     private Object normalizeValue(Object value, String key) {
-        if ("find".equals(key) || "aggregate".equals(key) || "count".equals(key) || "distinct".equals(key)
-                || "insert".equals(key) || "update".equals(key) || "delete".equals(key) || "findAndModify".equals(key)) {
+        if (LITERAL_PRESERVING_KEYS.contains(key)) {
             return value;
         }
         if (value instanceof Document document) {
@@ -68,7 +74,20 @@ public class QueryShapeAnalyzer {
             }
             return normalized;
         }
-        return "?";
+        return placeholder(value);
+    }
+
+    private String placeholder(Object value) {
+        if (value == null) {
+            return "?null";
+        }
+        if (value instanceof Number) {
+            return "?number";
+        }
+        if (value instanceof Boolean) {
+            return "?boolean";
+        }
+        return "?string";
     }
 
     private Set<String> features(Document command) {

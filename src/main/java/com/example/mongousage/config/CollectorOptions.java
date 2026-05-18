@@ -6,6 +6,7 @@ import java.util.List;
 
 public class CollectorOptions {
     private String uri;
+    private String mongoVersion;
     private Path outputDirectory;
     private List<String> includeDatabases = new ArrayList<>();
     private List<String> excludeDatabases = new ArrayList<>(List.of("local"));
@@ -21,6 +22,14 @@ public class CollectorOptions {
 
     public void setUri(String uri) {
         this.uri = uri;
+    }
+
+    public String getMongoVersion() {
+        return mongoVersion;
+    }
+
+    public void setMongoVersion(String mongoVersion) {
+        this.mongoVersion = mongoVersion;
     }
 
     public Path getOutputDirectory() {

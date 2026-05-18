@@ -38,6 +38,8 @@ class CollectExcelWriterTest {
                     "Databases",
                     "Collections",
                     "Indexes",
+                    "Namespace Usage",
+                    "Query Stats",
                     "Query Shapes",
                     "Workload",
                     "Command Errors"

@@ -14,7 +14,8 @@ class QueryShapeAnalyzerTest {
     void deduplicatesEquivalentFindQueriesWithDifferentLiteralValues() {
         ProfileSample paid = sample(new Document("find", "orders")
                 .append("filter", new Document("status", "PAID").append("amount", new Document("$gt", 100)))
-                .append("sort", new Document("createdAt", -1)));
+                .append("sort", new Document("createdAt", -1))
+                .append("limit", 50));
         paid.setMillis(20);
         paid.setDocsExamined(100);
         paid.setKeysExamined(50);
@@ -22,7 +23,8 @@ class QueryShapeAnalyzerTest {
 
         ProfileSample pending = sample(new Document("find", "orders")
                 .append("filter", new Document("status", "PENDING").append("amount", new Document("$gt", 500)))
-                .append("sort", new Document("createdAt", -1)));
+                .append("sort", new Document("createdAt", -1))
+                .append("limit", 50));
         pending.setMillis(40);
         pending.setDocsExamined(300);
         pending.setKeysExamined(80);
@@ -35,9 +37,26 @@ class QueryShapeAnalyzerTest {
         assertThat(shape.getSampleCount()).isEqualTo(2);
         assertThat(shape.getOperation()).isEqualTo("find");
         assertThat(shape.getNamespace()).isEqualTo("shop.orders");
-        assertThat(shape.getShape()).contains("\"status\": \"?\"", "\"$gt\": \"?\"", "\"createdAt\": \"?\"");
+        assertThat(shape.getShape()).contains("\"status\": \"?string\"", "\"$gt\": \"?number\"", "\"createdAt\": -1", "\"limit\": 50");
         assertThat(shape.getAvgMillis()).isEqualTo(30);
         assertThat(shape.getMaxMillis()).isEqualTo(40);
+    }
+
+    @Test
+    void keepsPaginationOptionsInSeparateShapes() {
+        ProfileSample firstPage = sample(new Document("find", "orders")
+                .append("filter", new Document("status", "PAID"))
+                .append("skip", 0)
+                .append("limit", 100));
+        ProfileSample deepPage = sample(new Document("find", "orders")
+                .append("filter", new Document("status", "PAID"))
+                .append("skip", 10000)
+                .append("limit", 100));
+
+        List<QueryShape> shapes = new QueryShapeAnalyzer().analyze(List.of(firstPage, deepPage));
+
+        assertThat(shapes).hasSize(2);
+        assertThat(shapes).extracting(QueryShape::getShape).anySatisfy(shape -> assertThat(shape).contains("\"skip\": 10000"));
     }
 
     @Test

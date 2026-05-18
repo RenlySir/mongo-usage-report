@@ -44,6 +44,7 @@ public class CollectJsonWriter {
         Map<String, Object> inventory = new LinkedHashMap<>();
         inventory.put("generatedAt", report.getGeneratedAt());
         inventory.put("target", report.getTarget());
+        inventory.put("requestedMongoVersion", report.getRequestedMongoVersion());
         inventory.put("databaseCount", report.getDatabases().size());
         inventory.put("collectionCount", collectionCount);
         inventory.put("indexCount", indexCount);
@@ -51,7 +52,11 @@ public class CollectJsonWriter {
         inventory.put("buildInfo", report.getBuildInfo());
         inventory.put("hello", report.getHello());
         inventory.put("serverStatus", report.getServerStatus());
+        inventory.put("connectionStatus", report.getConnectionStatus());
+        inventory.put("defaultReadWriteConcern", report.getDefaultReadWriteConcern());
         inventory.put("runtimeMetrics", report.getRuntimeMetrics());
+        inventory.put("namespaceUsage", report.getNamespaceUsage());
+        inventory.put("queryStats", report.getQueryStats());
         inventory.put("queryShapes", report.getQueryShapes());
         inventory.put("databases", report.getDatabases());
         inventory.put("commandErrors", report.getCommandErrors());

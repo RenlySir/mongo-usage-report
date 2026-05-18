@@ -24,6 +24,9 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
     @Option(names = "--uri", description = "MongoDB connection string.", required = true)
     private String uri;
 
+    @Option(names = "--mongo-version", description = "MongoDB server version family to target. Supported: 4, 4.4, 5, 6, 6.0.7, 6.2, 7.", required = true)
+    private String mongoVersion;
+
     @Option(names = "--out", description = "Output directory.", defaultValue = "mongo-usage-report")
     private Path outputDirectory;
 
@@ -67,6 +70,7 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
     private CollectorOptions toOptions() {
         CollectorOptions options = new CollectorOptions();
         options.setUri(uri);
+        options.setMongoVersion(mongoVersion);
         options.setOutputDirectory(outputDirectory);
         options.setIncludeDatabases(includeDatabases);
         options.setExcludeDatabases(excludeDatabases);

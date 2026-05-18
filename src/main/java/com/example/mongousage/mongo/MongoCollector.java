@@ -32,22 +32,31 @@ import static com.mongodb.client.model.Sorts.descending;
 public class MongoCollector {
     private final CollectorOptions options;
     private final BsonRedactor redactor = new BsonRedactor();
+    private final MongoVersionCapabilities capabilities;
 
     public MongoCollector(CollectorOptions options) {
         this.options = options;
+        this.capabilities = MongoVersionCapabilities.forVersion(options.getMongoVersion());
     }
 
     public UsageReport collect() {
         UsageReport report = new UsageReport();
         report.setTarget(options.isRedact() ? UriRedactor.redact(options.getUri()) : options.getUri());
+        report.setRequestedMongoVersion(capabilities.version().display());
         try (MongoClient client = MongoClients.create(options.getUri())) {
             MongoDatabase admin = client.getDatabase("admin");
             report.setBuildInfo(runCommand(report, "admin", "buildInfo", admin, new Document("buildInfo", 1)));
             report.setHello(runHello(report, admin));
             report.setServerStatus(runCommand(report, "admin", "serverStatus", admin, new Document("serverStatus", 1)));
+            report.setConnectionStatus(runCommand(report, "admin", "connectionStatus", admin, new Document("connectionStatus", 1).append("showPrivileges", false)));
+            if (capabilities.supportsDefaultReadWriteConcern()) {
+                report.setDefaultReadWriteConcern(runCommand(report, "admin", "getDefaultRWConcern", admin, new Document("getDefaultRWConcern", 1)));
+            }
             report.setDeploymentInfo(collectDeployment(report, admin));
             report.setRuntimeMetrics(collectRuntimeMetrics(report));
             collectCurrentOperations(report, admin);
+            report.setNamespaceUsage(collectNamespaceUsage(report, admin));
+            report.setQueryStats(collectQueryStats(report, admin));
 
             List<String> databaseNames = listDatabaseNames(report, client);
             if (options.isEnableProfiler()) {
@@ -156,30 +165,79 @@ public class MongoCollector {
     }
 
     private void collectCurrentOperations(UsageReport report, MongoDatabase admin) {
-        Document currentOp = runCommand(report, "admin", "currentOp", admin,
-                new Document("currentOp", 1).append("active", true));
-        Object inprog = currentOp.get("inprog");
-        if (!(inprog instanceof List<?> operations)) {
-            return;
+        List<Document> operations = new ArrayList<>();
+        if (capabilities.useCurrentOpAggregation()) {
+            operations = runAdminAggregation(report, admin,
+                    List.of(new Document("$currentOp", new Document("active", true).append("allUsers", false))),
+                    "$currentOp");
         }
-        for (Object operation : operations) {
-            if (operation instanceof Document raw) {
-                ProfileSample sample = toProfileSample("currentOp", raw);
-                if (sample.getCommand().isEmpty()) {
-                    Document command = raw.get("command", Document.class);
-                    sample.setCommand(command == null ? new Document() : maybeRedact(command));
-                }
-                if (sample.getNamespace() == null) {
-                    sample.setNamespace(raw.getString("ns"));
-                }
-                report.getProfileSamples().add(sample);
+        if (!capabilities.useCurrentOpAggregation() || operations.isEmpty()) {
+            Document currentOp = runCommand(report, "admin", "currentOp", admin,
+                    new Document("currentOp", 1).append("active", true));
+            Object inprog = currentOp.get("inprog");
+            if (inprog instanceof List<?> fallbackOperations) {
+                operations = fallbackOperations.stream()
+                        .filter(Document.class::isInstance)
+                        .map(Document.class::cast)
+                        .toList();
             }
+        }
+        for (Document raw : operations) {
+            ProfileSample sample = toProfileSample("currentOp", raw);
+            if (sample.getCommand().isEmpty()) {
+                Document command = raw.get("command", Document.class);
+                sample.setCommand(command == null ? new Document() : maybeRedact(command));
+            }
+            if (sample.getNamespace() == null) {
+                sample.setNamespace(raw.getString("ns"));
+            }
+            report.getProfileSamples().add(sample);
         }
     }
 
+    private List<Document> collectNamespaceUsage(UsageReport report, MongoDatabase admin) {
+        Document top = runCommand(report, "admin", "top", admin, new Document("top", 1));
+        Document totals = top.get("totals", Document.class);
+        if (totals == null) {
+            return new ArrayList<>();
+        }
+        List<Document> rows = new ArrayList<>();
+        for (String namespace : totals.keySet()) {
+            Document usage = totals.get(namespace, Document.class);
+            if (usage != null) {
+                rows.add(new Document("namespace", namespace).append("usage", maybeRedact(usage)));
+            }
+        }
+        return rows;
+    }
+
+    private List<Document> collectQueryStats(UsageReport report, MongoDatabase admin) {
+        if (!capabilities.supportsQueryStats()) {
+            return new ArrayList<>();
+        }
+        return runAdminAggregation(report, admin,
+                List.of(new Document("$queryStats", new Document()), new Document("$limit", 1000)),
+                "$queryStats");
+    }
+
+    private List<Document> runAdminAggregation(UsageReport report, MongoDatabase admin, List<Document> pipeline, String name) {
+        List<Document> results = new ArrayList<>();
+        try {
+            AggregateIterable<Document> iterable = admin.aggregate(pipeline);
+            iterable.maxTime(10, TimeUnit.SECONDS);
+            for (Document document : iterable) {
+                results.add(maybeRedact(document));
+            }
+        } catch (Exception e) {
+            report.getCommandErrors().add(new CommandError("admin", name, e.getMessage()));
+        }
+        return results;
+    }
+
     private Document runHello(UsageReport report, MongoDatabase admin) {
-        Document hello = runCommand(report, "admin", "hello", admin, new Document("hello", 1));
-        if (hello.isEmpty()) {
+        String command = capabilities.helloCommand();
+        Document hello = runCommand(report, "admin", command, admin, new Document(command, 1));
+        if (hello.isEmpty() && "hello".equals(command)) {
             return runCommand(report, "admin", "isMaster", admin, new Document("isMaster", 1));
         }
         return hello;

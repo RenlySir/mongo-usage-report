@@ -45,6 +45,8 @@ public class CollectExcelWriter {
             writeDatabases(workbook, report, headerStyle);
             writeCollections(workbook, report, headerStyle, wrapStyle);
             writeIndexes(workbook, report, headerStyle, wrapStyle);
+            writeNamespaceUsage(workbook, report, headerStyle, wrapStyle);
+            writeQueryStats(workbook, report, headerStyle, wrapStyle);
             writeQueryShapes(workbook, report, headerStyle, wrapStyle);
             writeWorkload(workbook, report, headerStyle, wrapStyle);
             writeCommandErrors(workbook, report, headerStyle, wrapStyle);
@@ -60,6 +62,7 @@ public class CollectExcelWriter {
         int row = 0;
         row = keyValue(sheet, row, "Generated At", String.valueOf(report.getGeneratedAt()), keyStyle);
         row = keyValue(sheet, row, "Target", report.getTarget(), keyStyle);
+        row = keyValue(sheet, row, "Requested MongoDB Version", report.getRequestedMongoVersion(), keyStyle);
         row = keyValue(sheet, row, "Databases Scanned", report.getDatabases().size(), keyStyle);
         row = keyValue(sheet, row, "Collections Scanned", allCollections(report).size(), keyStyle);
         row = keyValue(sheet, row, "Query Shapes", report.getQueryShapes().size(), keyStyle);
@@ -93,7 +96,9 @@ public class CollectExcelWriter {
         writeRow(sheet.createRow(row++), "replSetGetStatus", json(report.getDeploymentInfo().getReplSetStatus()));
         writeRow(sheet.createRow(row++), "listShards", json(report.getDeploymentInfo().getShardList()));
         writeRow(sheet.createRow(row++), "getCmdLineOpts", json(report.getDeploymentInfo().getGetCmdLineOpts()));
-        writeRow(sheet.createRow(row), "hostInfo", json(report.getDeploymentInfo().getHostInfo()));
+        writeRow(sheet.createRow(row++), "hostInfo", json(report.getDeploymentInfo().getHostInfo()));
+        writeRow(sheet.createRow(row++), "connectionStatus", json(report.getConnectionStatus()));
+        writeRow(sheet.createRow(row), "defaultReadWriteConcern", json(report.getDefaultReadWriteConcern()));
         for (int i = 0; i <= sheet.getLastRowNum(); i++) {
             Row data = sheet.getRow(i);
             if (data != null && data.getCell(1) != null) {
@@ -137,6 +142,31 @@ public class CollectExcelWriter {
             data.getCell(6).setCellStyle(wrapStyle);
         }
         finishSheet(sheet, 7);
+    }
+
+    private void writeNamespaceUsage(Workbook workbook, UsageReport report, CellStyle headerStyle, CellStyle wrapStyle) {
+        Sheet sheet = workbook.createSheet("Namespace Usage");
+        writeHeader(sheet.createRow(0), headerStyle, "Namespace", "Usage JSON");
+        int row = 1;
+        for (Document usage : report.getNamespaceUsage()) {
+            Row data = sheet.createRow(row++);
+            writeRow(data, string(usage.get("namespace")), json(asDocument(usage.get("usage"))));
+            data.getCell(1).setCellStyle(wrapStyle);
+        }
+        finishSheet(sheet, 2);
+    }
+
+    private void writeQueryStats(Workbook workbook, UsageReport report, CellStyle headerStyle, CellStyle wrapStyle) {
+        Sheet sheet = workbook.createSheet("Query Stats");
+        writeHeader(sheet.createRow(0), headerStyle, "Query Shape", "Stats JSON");
+        int row = 1;
+        for (Document stats : report.getQueryStats()) {
+            Row data = sheet.createRow(row++);
+            writeRow(data, json(asDocument(stats.get("key"))), json(stats));
+            data.getCell(0).setCellStyle(wrapStyle);
+            data.getCell(1).setCellStyle(wrapStyle);
+        }
+        finishSheet(sheet, 2);
     }
 
     private void writeQueryShapes(Workbook workbook, UsageReport report, CellStyle headerStyle, CellStyle wrapStyle) {

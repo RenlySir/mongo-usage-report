@@ -20,5 +20,6 @@ class MongoUsageCollectorAppTest {
         assertThat(exitCode).isZero();
         assertThat(out.toString()).contains("mongo-usage-collector");
         assertThat(out.toString()).contains("--uri");
+        assertThat(out.toString()).contains("--mongo-version");
     }
 }
