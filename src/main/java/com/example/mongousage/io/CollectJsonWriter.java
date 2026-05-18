@@ -60,6 +60,7 @@ public class CollectJsonWriter {
         inventory.put("queryShapes", report.getQueryShapes());
         inventory.put("databases", report.getDatabases());
         inventory.put("commandErrors", report.getCommandErrors());
+        inventory.put("skippedDiagnostics", report.getSkippedDiagnostics());
         return inventory;
     }
 }

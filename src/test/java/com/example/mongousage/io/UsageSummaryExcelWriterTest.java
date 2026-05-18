@@ -50,7 +50,8 @@ class UsageSummaryExcelWriterTest {
                     "Collection Count",
                     "Index Count",
                     "Profile Samples",
-                    "Command Errors"
+                    "Command Errors",
+                    "Skipped Diagnostics"
             );
 
             Sheet features = workbook.getSheet("Feature Summary");

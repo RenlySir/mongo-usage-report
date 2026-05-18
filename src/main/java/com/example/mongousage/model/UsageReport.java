@@ -23,6 +23,7 @@ public class UsageReport {
     private List<QueryShape> queryShapes = new ArrayList<>();
     private List<RuntimeMetric> runtimeMetrics = new ArrayList<>();
     private List<CommandError> commandErrors = new ArrayList<>();
+    private List<Document> skippedDiagnostics = new ArrayList<>();
 
     public Instant getGeneratedAt() {
         return generatedAt;
@@ -150,5 +151,13 @@ public class UsageReport {
 
     public void setCommandErrors(List<CommandError> commandErrors) {
         this.commandErrors = commandErrors == null ? new ArrayList<>() : commandErrors;
+    }
+
+    public List<Document> getSkippedDiagnostics() {
+        return skippedDiagnostics;
+    }
+
+    public void setSkippedDiagnostics(List<Document> skippedDiagnostics) {
+        this.skippedDiagnostics = skippedDiagnostics == null ? new ArrayList<>() : skippedDiagnostics;
     }
 }

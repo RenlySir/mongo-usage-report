@@ -3,6 +3,8 @@ package com.example.mongousage.mongo;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class MongoCollectorTest {
@@ -48,5 +50,20 @@ class MongoCollectorTest {
         assertThat(MongoCollector.shouldCollectCollectionAggregations("orders")).isTrue();
         assertThat(MongoCollector.shouldCollectCollectionAggregations("system.profile")).isFalse();
         assertThat(MongoCollector.shouldCollectCollectionAggregations("system.views")).isFalse();
+    }
+
+    @Test
+    void skipsMongosOnlyUnsupportedDiagnosticsWithoutCommandErrors() {
+        assertThat(MongoCollector.shouldSkipCommand(new Document("msg", "isdbgrid"), "top")).isTrue();
+        assertThat(MongoCollector.shouldSkipCommand(new Document("msg", "isdbgrid"), "getParameter.featureCompatibilityVersion")).isTrue();
+        assertThat(MongoCollector.shouldSkipCommand(new Document("setName", "rs0"), "top")).isFalse();
+    }
+
+    @Test
+    void recordsSkippedDiagnosticsSeparatelyFromCommandErrors() {
+        assertThat(MongoCollector.skippedDiagnostic("admin", "top", "mongos does not expose top"))
+                .isEqualTo(new Document("scope", "admin")
+                        .append("command", "top")
+                        .append("reason", "mongos does not expose top"));
     }
 }

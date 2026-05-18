@@ -69,6 +69,7 @@ public class UsageSummaryExcelWriter {
         row = keyValue(sheet, row, "Query Shapes", report.getQueryShapes().size(), keyStyle);
         row = keyValue(sheet, row, "Profile Samples", report.getProfileSamples().size(), keyStyle);
         row = keyValue(sheet, row, "Command Errors", report.getCommandErrors().size(), keyStyle);
+        row = keyValue(sheet, row, "Skipped Diagnostics", report.getSkippedDiagnostics().size(), keyStyle);
         keyValue(sheet, row, "Risk Items", riskItems(report).size(), keyStyle);
         finishSheet(sheet, 2);
     }

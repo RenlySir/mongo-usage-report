@@ -42,7 +42,8 @@ class CollectExcelWriterTest {
                     "Query Stats",
                     "Query Shapes",
                     "Workload",
-                    "Command Errors"
+                    "Command Errors",
+                    "Skipped Diagnostics"
             );
         }
     }

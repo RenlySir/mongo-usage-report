@@ -50,6 +50,7 @@ public class CollectExcelWriter {
             writeQueryShapes(workbook, report, headerStyle, wrapStyle);
             writeWorkload(workbook, report, headerStyle, wrapStyle);
             writeCommandErrors(workbook, report, headerStyle, wrapStyle);
+            writeSkippedDiagnostics(workbook, report, headerStyle, wrapStyle);
 
             try (OutputStream out = Files.newOutputStream(outputFile)) {
                 workbook.write(out);
@@ -68,6 +69,7 @@ public class CollectExcelWriter {
         row = keyValue(sheet, row, "Query Shapes", report.getQueryShapes().size(), keyStyle);
         row = keyValue(sheet, row, "Profile Samples", report.getProfileSamples().size(), keyStyle);
         row = keyValue(sheet, row, "Command Errors", report.getCommandErrors().size(), keyStyle);
+        row = keyValue(sheet, row, "Skipped Diagnostics", report.getSkippedDiagnostics().size(), keyStyle);
         row++;
 
         Row header = sheet.createRow(row++);
@@ -231,6 +233,18 @@ public class CollectExcelWriter {
         for (CommandError error : report.getCommandErrors()) {
             Row data = sheet.createRow(row++);
             writeRow(data, error.scope(), error.command(), error.message());
+            data.getCell(2).setCellStyle(wrapStyle);
+        }
+        finishSheet(sheet, 3);
+    }
+
+    private void writeSkippedDiagnostics(Workbook workbook, UsageReport report, CellStyle headerStyle, CellStyle wrapStyle) {
+        Sheet sheet = workbook.createSheet("Skipped Diagnostics");
+        writeHeader(sheet.createRow(0), headerStyle, "Scope", "Command", "Reason");
+        int row = 1;
+        for (Document skipped : report.getSkippedDiagnostics()) {
+            Row data = sheet.createRow(row++);
+            writeRow(data, string(skipped.get("scope")), string(skipped.get("command")), string(skipped.get("reason")));
             data.getCell(2).setCellStyle(wrapStyle);
         }
         finishSheet(sheet, 3);

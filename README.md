@@ -103,7 +103,7 @@ mongo-usage-report/
   workload.json     # profiler samples (may be empty if profiling is off)
 ```
 
-The Excel workbook contains these sheets: `Overview`, `Deployment`, `Runtime Metrics`, `Databases`, `Collections`, `Indexes`, `Namespace Usage`, `Query Stats`, `Query Shapes`, `Workload`, and `Command Errors`.
+The Excel workbook contains these sheets: `Overview`, `Deployment`, `Runtime Metrics`, `Databases`, `Collections`, `Indexes`, `Namespace Usage`, `Query Stats`, `Query Shapes`, `Workload`, `Command Errors`, and `Skipped Diagnostics`.
 
 ## Summarize collected report
 
@@ -139,6 +139,8 @@ Default mode is designed to be read-only and bounded, but it still runs diagnost
 - Inventory collection runs `dbStats`, `listCollections`, `collStats`, `listIndexes`, `$indexStats`, and `$planCacheStats` per selected database or collection. The request count grows with database and collection count. The tool does not export business documents or run full collection scans intentionally, but collection/index statistics can still consume server CPU and I/O on very large clusters.
 - Workload collection reads existing `system.profile` documents with `sort(ts desc).limit(--sample-limit)`. Lower `--sample-limit` reduces reads from profile collections. The default limit is `1000` per database.
 - Active operation and query telemetry use diagnostic reads (`$currentOp` or `currentOp`, `top`, and `$queryStats` on supported versions). These are best-effort calls; permission or version failures are captured in the report instead of aborting collection.
+- Diagnostic reads are bounded with a short server-side timeout where the MongoDB driver supports it. If a diagnostic command is unavailable, unauthorized, or too expensive to finish in time, the collector records the failure or skip and continues with the rest of the report.
+- Topology-specific unsupported diagnostics are skipped instead of treated as unexpected errors. For example, `mongos` does not expose `top` or `getParameter.featureCompatibilityVersion`; these are written to `Skipped Diagnostics`.
 - Excel and JSON generation happens locally after data is fetched, so workbook generation does not add load to MongoDB.
 
 Enabling `--enable-profiler` has a higher impact because it changes profiling settings temporarily:
@@ -240,7 +242,7 @@ By default the temporary test database is dropped after the run. Add `--keep-com
 | 6.0.7 - 6.1.x | `hello`, with fallback to `isMaster` if needed | `getDefaultRWConcern` enabled | command-form `currentOp` | `$queryStats` attempted with a `1000` row limit | Adds query telemetry when the server exposes `$queryStats`; unavailable or unauthorized calls are recorded as command errors. |
 | 6.2.x - 7.x | `hello`, with fallback to `isMaster` if needed | `getDefaultRWConcern` enabled | prefers `$currentOp` aggregation, then falls back to command-form `currentOp` | `$queryStats` attempted with a `1000` row limit | Uses newer aggregation-based active-operation collection and includes `$queryStats` output when available. |
 
-Commands that are broadly useful across versions, such as `buildInfo`, `serverStatus`, `connectionStatus`, `getCmdLineOpts`, `hostInfo`, `dbStats`, `collStats`, `listIndexes`, `$indexStats`, `$planCacheStats`, `top`, and existing `system.profile` reads, are attempted in all modes. Deployment-specific commands are gated by detected topology: `replSetGetStatus` is collected for replica sets, `listShards` for sharded/mongos deployments, and `getDefaultRWConcern` for distributed deployments. If a command is unavailable because of MongoDB version, deployment type, managed-service restrictions, or permissions, the failure is recorded in both the Excel `Command Errors` sheet and `raw.json`; it does not abort the run.
+Commands that are broadly useful across versions, such as `buildInfo`, `serverStatus`, `connectionStatus`, `getCmdLineOpts`, `hostInfo`, `dbStats`, `collStats`, `listIndexes`, `$indexStats`, `$planCacheStats`, and existing `system.profile` reads, are attempted in all modes. Deployment-specific commands are gated by detected topology: `replSetGetStatus` is collected for replica sets, `listShards` for sharded/mongos deployments, `getDefaultRWConcern` for distributed deployments, and mongod-only diagnostics such as `top` are skipped when connected through `mongos`. If a command is unavailable because of MongoDB version, deployment type, managed-service restrictions, or permissions, the failure is recorded in both the Excel `Command Errors` sheet and `raw.json`; expected topology skips are recorded in `Skipped Diagnostics`; neither case aborts the run.
 
 ## Deployment mode detection
 

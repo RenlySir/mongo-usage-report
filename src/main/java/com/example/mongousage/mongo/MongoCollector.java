@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import static com.mongodb.client.model.Sorts.descending;
 
 public class MongoCollector {
+    private static final long DIAGNOSTIC_MAX_TIME_SECONDS = 10;
     private final CollectorOptions options;
     private final BsonRedactor redactor = new BsonRedactor();
     private final MongoVersionCapabilities capabilities;
@@ -107,6 +108,10 @@ public class MongoCollector {
     }
 
     private String featureCompatibilityVersion(UsageReport report, MongoDatabase admin) {
+        if (shouldSkipCommand(report.getHello(), "getParameter.featureCompatibilityVersion")) {
+            skipDiagnostic(report, "admin", "getParameter.featureCompatibilityVersion", "mongos does not expose featureCompatibilityVersion through getParameter");
+            return "";
+        }
         Document result = runCommand(report, "admin", "getParameter.featureCompatibilityVersion", admin,
                 new Document("getParameter", 1).append("featureCompatibilityVersion", 1));
         Document fcv = result.get("featureCompatibilityVersion", Document.class);
@@ -190,6 +195,10 @@ public class MongoCollector {
     }
 
     private List<Document> collectNamespaceUsage(UsageReport report, MongoDatabase admin) {
+        if (shouldSkipCommand(report.getHello(), "top")) {
+            skipDiagnostic(report, "admin", "top", "mongos does not expose the top command");
+            return new ArrayList<>();
+        }
         Document top = runCommand(report, "admin", "top", admin, new Document("top", 1));
         return toNamespaceUsageRows(top);
     }
@@ -244,7 +253,10 @@ public class MongoCollector {
     private List<String> listDatabaseNames(UsageReport report, MongoClient client) {
         List<String> names = new ArrayList<>();
         try {
-            for (String databaseName : client.listDatabaseNames()) {
+            for (String databaseName : client.listDatabases()
+                    .nameOnly(true)
+                    .maxTime(DIAGNOSTIC_MAX_TIME_SECONDS, TimeUnit.SECONDS)
+                    .map(document -> document.getString("name"))) {
                 names.add(databaseName);
             }
         } catch (Exception e) {
@@ -275,7 +287,8 @@ public class MongoCollector {
     private List<CollectionInfo> listCollections(UsageReport report, String databaseName, MongoDatabase database) {
         List<CollectionInfo> collections = new ArrayList<>();
         try {
-            ListCollectionsIterable<Document> iterable = database.listCollections();
+            ListCollectionsIterable<Document> iterable = database.listCollections()
+                    .maxTime(DIAGNOSTIC_MAX_TIME_SECONDS, TimeUnit.SECONDS);
             for (Document raw : iterable) {
                 String name = raw.getString("name");
                 String type = raw.getString("type");
@@ -307,7 +320,8 @@ public class MongoCollector {
     private List<IndexInfo> listIndexes(UsageReport report, CollectionInfo collectionInfo, MongoCollection<Document> collection) {
         List<IndexInfo> indexes = new ArrayList<>();
         try {
-            for (Document raw : collection.listIndexes()) {
+            for (Document raw : collection.listIndexes()
+                    .maxTime(DIAGNOSTIC_MAX_TIME_SECONDS, TimeUnit.SECONDS)) {
                 indexes.add(new IndexInfo(raw.getString("name"), raw.get("key", Document.class), raw));
             }
         } catch (Exception e) {
@@ -333,7 +347,10 @@ public class MongoCollector {
     private void collectProfileSamples(UsageReport report, MongoDatabase database) {
         try {
             MongoCollection<Document> profile = database.getCollection("system.profile");
-            FindIterable<Document> iterable = profile.find().sort(descending("ts")).limit(options.getSampleLimit());
+            FindIterable<Document> iterable = profile.find()
+                    .sort(descending("ts"))
+                    .limit(options.getSampleLimit())
+                    .maxTime(DIAGNOSTIC_MAX_TIME_SECONDS, TimeUnit.SECONDS);
             for (Document raw : iterable) {
                 report.getProfileSamples().add(toProfileSample(database.getName(), raw));
             }
@@ -364,11 +381,29 @@ public class MongoCollector {
 
     private Document runCommand(UsageReport report, String scope, String commandName, MongoDatabase database, Document command) {
         try {
-            return maybeRedact(database.runCommand(command));
+            return maybeRedact(database.withTimeout(DIAGNOSTIC_MAX_TIME_SECONDS, TimeUnit.SECONDS).runCommand(command));
         } catch (Exception e) {
             report.getCommandErrors().add(new CommandError(scope, commandName, e.getMessage()));
             return new Document();
         }
+    }
+
+    static boolean shouldSkipCommand(Document hello, String commandName) {
+        return isMongos(hello) && Set.of("top", "getParameter.featureCompatibilityVersion").contains(commandName);
+    }
+
+    static Document skippedDiagnostic(String scope, String command, String reason) {
+        return new Document("scope", scope)
+                .append("command", command)
+                .append("reason", reason);
+    }
+
+    private void skipDiagnostic(UsageReport report, String scope, String command, String reason) {
+        report.getSkippedDiagnostics().add(skippedDiagnostic(scope, command, reason));
+    }
+
+    private static boolean isMongos(Document hello) {
+        return hello != null && "isdbgrid".equals(hello.getString("msg"));
     }
 
     private Document maybeRedact(Document document) {
