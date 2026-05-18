@@ -90,9 +90,17 @@ java -jar target/mongo-usage-collector.jar \
 
 ## Version-specific behavior
 
-- MongoDB 4.x: uses `isMaster`; skips `$queryStats`; skips `getDefaultRWConcern` unless version is `4.4` or newer.
-- MongoDB 5.x and 6.0 before 6.0.7: uses `hello`; uses command-form `currentOp`; skips `$queryStats`.
-- MongoDB 6.0.7 and newer: attempts `$queryStats` where the server supports it.
-- MongoDB 6.2 and 7.x: prefers `$currentOp` aggregation and falls back to command-form `currentOp` if unavailable.
+`--mongo-version` controls which MongoDB commands the collector uses. It is not only a report label. Pass the closest target server API version, for example `4`, `4.4`, `5`, `6`, `6.0.7`, `6.2`, `7`, or a full server string such as `v7.0.5`. The report stores the normalized value as `major.minor.patch`.
 
-Command failures from permissions or server differences are recorded in both the Excel `Command Errors` sheet and `raw.json`; they do not abort the run.
+| Target version | Handshake command | Default read/write concern | Active operations | Query telemetry | Main report difference |
+| --- | --- | --- | --- | --- | --- |
+| 4.0 - 4.2 | `isMaster` | Skipped | command-form `currentOp` | `$queryStats` skipped | Deployment and workload are based on legacy handshake, `serverStatus`, `top`, existing profiler rows, and `currentOp`. |
+| 4.4 | `isMaster` | `getDefaultRWConcern` enabled | command-form `currentOp` | `$queryStats` skipped | Adds default read/write concern information for migration risk review. |
+| 5.x | `hello`, with fallback to `isMaster` if needed | `getDefaultRWConcern` enabled | command-form `currentOp` | `$queryStats` skipped | Uses the modern handshake while keeping the older active-operation command path. |
+| 6.0.0 - 6.0.6 | `hello`, with fallback to `isMaster` if needed | `getDefaultRWConcern` enabled | command-form `currentOp` | `$queryStats` skipped | Same collection strategy as 5.x for query telemetry; query shapes come from profiler and current operations. |
+| 6.0.7 - 6.1.x | `hello`, with fallback to `isMaster` if needed | `getDefaultRWConcern` enabled | command-form `currentOp` | `$queryStats` attempted with a `1000` row limit | Adds query telemetry when the server exposes `$queryStats`; unavailable or unauthorized calls are recorded as command errors. |
+| 6.2.x - 7.x | `hello`, with fallback to `isMaster` if needed | `getDefaultRWConcern` enabled | prefers `$currentOp` aggregation, then falls back to command-form `currentOp` | `$queryStats` attempted with a `1000` row limit | Uses newer aggregation-based active-operation collection and includes `$queryStats` output when available. |
+
+Commands that are broadly useful across versions, such as `buildInfo`, `serverStatus`, `connectionStatus`, `replSetGetStatus`, `listShards`, `getCmdLineOpts`, `hostInfo`, `dbStats`, `collStats`, `listIndexes`, `$indexStats`, `$planCacheStats`, `top`, and existing `system.profile` reads, are attempted in all modes. If a command is unavailable because of MongoDB version, deployment type, managed-service restrictions, or permissions, the failure is recorded in both the Excel `Command Errors` sheet and `raw.json`; it does not abort the run.
+
+Use the actual target MongoDB version instead of always choosing the latest version. For MongoDB-compatible services, select the closest supported API level. If compatibility is uncertain, start with a lower compatible setting such as `--mongo-version 6` to avoid newer diagnostic commands, then rerun with `6.0.7`, `6.2`, or `7` only when those commands are expected to work.
