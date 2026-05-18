@@ -16,10 +16,20 @@ target/mongo-usage-collector.jar
 
 ## Run
 
+The JAR has two independent commands. Use `collect` for read-only information collection. Use `compat-test` when you intentionally want the tool to create schema, generate data, and run automated MongoDB feature tests.
+
+```bash
+java -jar target/mongo-usage-collector.jar --help
+java -jar target/mongo-usage-collector.jar collect --help
+java -jar target/mongo-usage-collector.jar compat-test --help
+```
+
+## Collect MongoDB usage information
+
 Read-only: no profiler changes, no index or user changes, no collection document export.
 
 ```bash
-java -jar target/mongo-usage-collector.jar \
+java -jar target/mongo-usage-collector.jar collect \
   --mongo-version 7 \
   --uri "mongodb://user:password@host:27017/admin?authSource=admin" \
   --out ./mongo-usage-report
@@ -68,7 +78,7 @@ For large or production environments, start with read-only mode, restrict scope 
 Use only with explicit approval. The tool records current profiling settings per database, sets profiler level 1 with the requested `slowms`, waits, then restores the original settings.
 
 ```bash
-java -jar target/mongo-usage-collector.jar \
+java -jar target/mongo-usage-collector.jar collect \
   --mongo-version 7 \
   --uri "mongodb://user:password@host:27017/admin?authSource=admin" \
   --out ./mongo-usage-report \
@@ -77,7 +87,7 @@ java -jar target/mongo-usage-collector.jar \
   --slow-ms 50
 ```
 
-## Compatibility test mode
+## Automated compatibility test data and cases
 
 Use the separate `compat-test` command to create a temporary MongoDB test database, create schema and indexes, insert sample data, execute feature tests, then write `compat-test-report.json`. This command does not run the inventory/workload collector.
 
@@ -93,14 +103,21 @@ The compatibility test catalog is maintained in code at `MongoCompatTestCatalog`
 
 By default the temporary test database is dropped after the run. Add `--keep-compat-db` when you want to inspect the generated schema and sample data manually.
 
-## Options
+## Command options
+
+`collect` options:
 
 ```text
 --mongo-version 4|4.4|5|6|6.0.7|6.2|7
                           Required. Selects version-compatible collection methods.
+--uri mongodb://...        Required. MongoDB connection string.
+--out ./dir                Output directory. Defaults to mongo-usage-report.
 --include-dbs db1,db2      Only collect listed databases.
 --exclude-dbs db1,db2      Skip listed databases. Defaults to local.
 --sample-limit 1000        Max existing system.profile rows per database.
+--enable-profiler          Temporarily enable profiler level 1, sample, and restore settings.
+--profile-seconds 300      Profiler sampling window when --enable-profiler is set.
+--slow-ms 50               Profiler slowms when --enable-profiler is set.
 --redact / --no-redact     Redact sensitive command fields. Defaults to enabled.
 ```
 

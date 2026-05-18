@@ -19,8 +19,27 @@ class MongoUsageCollectorAppTest {
 
         assertThat(exitCode).isZero();
         assertThat(out.toString()).contains("mongo-usage-collector");
+        assertThat(out.toString()).contains("Commands:");
+        assertThat(out.toString()).containsPattern("(?m)^\\s+collect\\s+");
+        assertThat(out.toString()).containsPattern("(?m)^\\s+compat-test\\s+");
+        assertThat(out.toString()).doesNotContain("--enable-profiler");
+        assertThat(out.toString()).doesNotContain("--compat-db");
+    }
+
+    @Test
+    void collectHelpIsSeparateSubcommand() {
+        StringWriter out = new StringWriter();
+        CommandLine commandLine = new CommandLine(new MongoUsageCollectorApp());
+        commandLine.setOut(new PrintWriter(out));
+
+        int exitCode = commandLine.execute("collect", "--help");
+
+        assertThat(exitCode).isZero();
+        assertThat(out.toString()).contains("Usage: mongo-usage-collector collect");
         assertThat(out.toString()).contains("--uri");
         assertThat(out.toString()).contains("--mongo-version");
+        assertThat(out.toString()).contains("--enable-profiler");
+        assertThat(out.toString()).doesNotContain("--compat-db");
     }
 
     @Test
@@ -35,5 +54,6 @@ class MongoUsageCollectorAppTest {
         assertThat(out.toString()).contains("compat-test");
         assertThat(out.toString()).contains("--compat-db");
         assertThat(out.toString()).contains("--keep-compat-db");
+        assertThat(out.toString()).doesNotContain("--enable-profiler");
     }
 }
