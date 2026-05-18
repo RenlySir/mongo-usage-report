@@ -9,6 +9,7 @@ import com.example.mongousage.io.CollectExcelWriter;
 import com.example.mongousage.io.CollectJsonWriter;
 import com.example.mongousage.io.UsageReportJsonReader;
 import com.example.mongousage.io.UsageSummaryExcelWriter;
+import com.example.mongousage.io.UsageSummaryHtmlWriter;
 import com.example.mongousage.model.UsageReport;
 import com.example.mongousage.mongo.MongoCollector;
 import com.mongodb.client.MongoClients;
@@ -148,7 +149,7 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
     @Command(
             name = "summarize",
             mixinStandardHelpOptions = true,
-            description = "Read an existing collect output directory and generate a summarized Excel workbook."
+            description = "Read an existing collect output directory and generate summarized Excel and HTML reports."
     )
     static class SummarizeCommand implements Callable<Integer> {
         @Option(names = "--report-dir", description = "Directory produced by the collect command.", defaultValue = "mongo-usage-report")
@@ -157,13 +158,19 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
         @Option(names = "--out", description = "Summary Excel file path. Defaults to <report-dir>/mongo-usage-summary.xlsx.")
         private Path outputFile;
 
+        @Option(names = "--html-out", description = "Summary HTML file path. Defaults to <report-dir>/mongo-usage-summary.html.")
+        private Path htmlOutputFile;
+
         @Override
         public Integer call() throws Exception {
             Path rawJson = reportDirectory.resolve("raw.json");
             Path summaryFile = outputFile == null ? reportDirectory.resolve("mongo-usage-summary.xlsx") : outputFile;
+            Path htmlSummaryFile = htmlOutputFile == null ? reportDirectory.resolve("mongo-usage-summary.html") : htmlOutputFile;
             UsageReport report = new UsageReportJsonReader().read(rawJson);
             new UsageSummaryExcelWriter().write(report, summaryFile);
+            new UsageSummaryHtmlWriter().write(report, htmlSummaryFile);
             System.out.printf("MongoDB usage summary Excel written to %s%n", summaryFile.toAbsolutePath());
+            System.out.printf("MongoDB usage summary HTML written to %s%n", htmlSummaryFile.toAbsolutePath());
             return 0;
         }
     }

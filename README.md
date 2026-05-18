@@ -15,7 +15,7 @@ Java 17 CLI that **collects** MongoDB migration assessment data and writes an Ex
 | 命令 | 是否连接 MongoDB | 是否写入测试数据 | 适用场景 | 主要产物 |
 | --- | --- | --- | --- | --- |
 | `collect` | 是 | 否，默认只读；启用 profiler 时会临时修改 profiling 配置 | 迁移前信息收集、负载与查询特征分析、部署模式识别 | `mongo-usage-report.xlsx`, `raw.json`, `inventory.json`, `workload.json` |
-| `summarize` | 否 | 否 | 对 `collect` 产物进行二次汇总，形成评审版摘要 | `mongo-usage-summary.xlsx` |
+| `summarize` | 否 | 否 | 对 `collect` 产物进行二次汇总，形成评审版摘要 | `mongo-usage-summary.xlsx`, `mongo-usage-summary.html` |
 | `compat-test` | 是 | 是，创建临时测试库、集合、索引和样例数据 | 验证目标数据库对 MongoDB 基础能力的兼容性 | `compat-test-report.json`, `compat-test-results.xlsx` |
 
 推荐使用流程：
@@ -48,7 +48,8 @@ java -jar target/mongo-usage-collector.jar compat-test \
 | --- | --- | --- |
 | `mongo-usage-report.xlsx` | `collect` | 明细版采集报告，包含部署、库表、索引、负载、查询形态和错误明细。 |
 | `raw.json` | `collect` | 完整机器可读采集结果，也是 `summarize` 的输入。 |
-| `mongo-usage-summary.xlsx` | `summarize` | 评审版摘要，突出部署规模、特性使用、重点集合、查询形态和风险项。 |
+| `mongo-usage-summary.xlsx` | `summarize` | Excel 评审版摘要，突出部署规模、特性使用、重点集合、查询形态和风险项。 |
+| `mongo-usage-summary.html` | `summarize` | HTML 评审版摘要，内容与 Excel 汇总口径一致，便于浏览器直接查看和分享。 |
 | `compat-test-results.xlsx` | `compat-test` | 兼容性测试 Excel，包含编号、mongosh 命令、状态、耗时和错误原因。 |
 | `compat-test-report.json` | `compat-test` | 完整机器可读兼容性测试结果。 |
 
@@ -107,7 +108,7 @@ The Excel workbook contains these sheets: `Overview`, `Deployment`, `Runtime Met
 
 ## Summarize collected report
 
-After `collect` has written a `mongo-usage-report` directory, use `summarize` to generate a compact summary workbook from the existing `raw.json`. This command does not connect to MongoDB and does not collect new data.
+After `collect` has written a `mongo-usage-report` directory, use `summarize` to generate compact summary reports from the existing `raw.json`. This command does not connect to MongoDB and does not collect new data.
 
 ```bash
 java -jar target/mongo-usage-collector.jar summarize \
@@ -119,9 +120,10 @@ Output:
 ```text
 mongo-usage-report/
   mongo-usage-summary.xlsx  # summarized workbook for migration review
+  mongo-usage-summary.html  # summarized browser-readable report
 ```
 
-The summary workbook contains these sheets: `Executive Summary`, `Feature Summary`, `Top Collections`, `Top Query Shapes`, and `Risks`. It is intended for quick review after collection: deployment mode, version, scale, detected feature usage, largest collections, slowest or most sampled query shapes, and high-signal migration review items.
+The summary reports contain these sections: `Executive Summary`, `Feature Summary`, `Top Collections`, `Top Query Shapes`, and `Risks`. The Excel workbook keeps the existing sheet-based format, and the HTML report presents the same summary in a browser-readable page. They are intended for quick review after collection: deployment mode, version, scale, detected feature usage, largest collections, slowest or most sampled query shapes, and high-signal migration review items.
 
 ## What it collects
 
@@ -216,6 +218,7 @@ By default the temporary test database is dropped after the run. Add `--keep-com
 ```text
 --report-dir ./dir          Directory produced by collect. Defaults to mongo-usage-report.
 --out ./summary.xlsx        Optional summary Excel output file. Defaults to <report-dir>/mongo-usage-summary.xlsx.
+--html-out ./summary.html   Optional summary HTML output file. Defaults to <report-dir>/mongo-usage-summary.html.
 ```
 
 `compat-test` options:

@@ -69,6 +69,7 @@ class MongoUsageCollectorAppTest {
         assertThat(exitCode).isZero();
         assertThat(out.toString()).contains("Usage: mongo-usage-collector summarize");
         assertThat(out.toString()).contains("--report-dir");
+        assertThat(out.toString()).contains("--html-out");
         assertThat(out.toString()).doesNotContain("--uri");
         assertThat(out.toString()).doesNotContain("--enable-profiler");
     }
