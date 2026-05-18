@@ -2,6 +2,63 @@
 
 Java 17 CLI that **collects** MongoDB migration assessment data and writes an Excel report. It is aligned with the migration questionnaire: deployment mode, version/configuration, database and collection scale, indexes, runtime counters, profiler/currentOp workload samples, and de-duplicated query shapes. Default mode is read-only.
 
+## 项目功能总结
+
+本项目是一个面向 MongoDB 替换、迁移评估和兼容性验证的 Java 命令行工具。它主要解决三个问题：
+
+- 在不导出业务数据的前提下，收集客户 MongoDB 环境的部署模式、版本、库表规模、索引、运行负载、查询形态和潜在迁移风险。
+- 将 `collect` 收集到的明细结果再次汇总，生成更适合迁移评审和客户沟通的 Excel 摘要。
+- 在指定 MongoDB 或 MongoDB 兼容服务上自动创建测试 schema、测试数据并执行兼容性用例，输出 JSON 和 Excel 测试结果。
+
+核心命令如下：
+
+| 命令 | 是否连接 MongoDB | 是否写入测试数据 | 适用场景 | 主要产物 |
+| --- | --- | --- | --- | --- |
+| `collect` | 是 | 否，默认只读；启用 profiler 时会临时修改 profiling 配置 | 迁移前信息收集、负载与查询特征分析、部署模式识别 | `mongo-usage-report.xlsx`, `raw.json`, `inventory.json`, `workload.json` |
+| `summarize` | 否 | 否 | 对 `collect` 产物进行二次汇总，形成评审版摘要 | `mongo-usage-summary.xlsx` |
+| `compat-test` | 是 | 是，创建临时测试库、集合、索引和样例数据 | 验证目标数据库对 MongoDB 基础能力的兼容性 | `compat-test-report.json`, `compat-test-results.xlsx` |
+
+推荐使用流程：
+
+```bash
+# 1. 构建可执行 JAR
+mvn package
+
+# 2. 只读收集 MongoDB 使用信息
+java -jar target/mongo-usage-collector.jar collect \
+  --mongo-version 7 \
+  --uri "mongodb://user:password@host:27017/admin?authSource=admin" \
+  --out ./mongo-usage-report
+
+# 3. 基于 collect 结果生成汇总 Excel，不再连接 MongoDB
+java -jar target/mongo-usage-collector.jar summarize \
+  --report-dir ./mongo-usage-report
+
+# 4. 可选：在测试环境或授权环境执行兼容性测试
+java -jar target/mongo-usage-collector.jar compat-test \
+  --mongo-version 7 \
+  --uri "mongodb://user:password@host:27017/admin?authSource=admin" \
+  --out ./mongo-compat-test-report \
+  --compat-db mongo_usage_compat_test
+```
+
+输出文件定位：
+
+| 文件 | 来源命令 | 用途 |
+| --- | --- | --- |
+| `mongo-usage-report.xlsx` | `collect` | 明细版采集报告，包含部署、库表、索引、负载、查询形态和错误明细。 |
+| `raw.json` | `collect` | 完整机器可读采集结果，也是 `summarize` 的输入。 |
+| `mongo-usage-summary.xlsx` | `summarize` | 评审版摘要，突出部署规模、特性使用、重点集合、查询形态和风险项。 |
+| `compat-test-results.xlsx` | `compat-test` | 兼容性测试 Excel，包含编号、mongosh 命令、状态、耗时和错误原因。 |
+| `compat-test-report.json` | `compat-test` | 完整机器可读兼容性测试结果。 |
+
+边界说明：
+
+- `collect` 不导出业务文档内容，默认不创建索引、不创建用户、不修改集合数据。
+- `summarize` 只读取已有 `raw.json`，适合离线汇总和重复生成报告。
+- `compat-test` 会写入测试数据，建议在测试实例、临时库或已授权环境运行。
+- MongoDB 版本差异会影响可用诊断命令；请用 `--mongo-version` 指定目标版本族。
+
 ## Build
 
 ```bash
