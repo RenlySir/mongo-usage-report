@@ -3,6 +3,7 @@ package com.example.mongousage;
 import com.example.mongousage.config.CollectorOptions;
 import com.example.mongousage.compat.MongoCompatTestReport;
 import com.example.mongousage.compat.MongoCompatTestRunner;
+import com.example.mongousage.io.CompatTestExcelWriter;
 import com.example.mongousage.io.CompatTestJsonWriter;
 import com.example.mongousage.io.CollectExcelWriter;
 import com.example.mongousage.io.CollectJsonWriter;
@@ -130,7 +131,10 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
                 MongoCompatTestReport compatReport = new MongoCompatTestRunner(client, compatDatabase, !keepCompatDatabase, mongoVersion).run();
                 new CompatTestJsonWriter().write(compatReport, outputDirectory);
                 Path reportFile = outputDirectory.resolve("compat-test-report.json");
+                Path excelFile = outputDirectory.resolve("compat-test-results.xlsx");
+                new CompatTestExcelWriter().write(compatReport, excelFile);
                 System.out.printf("MongoDB compatibility test report written to %s%n", reportFile.toAbsolutePath());
+                System.out.printf("MongoDB compatibility test Excel written to %s%n", excelFile.toAbsolutePath());
                 System.out.printf("Compatibility tests: total=%d, passed=%d, failed=%d, skipped=%d%n",
                         compatReport.total(), compatReport.passed(), compatReport.failed(), compatReport.skipped());
                 return compatReport.isSuccess() ? 0 : 2;

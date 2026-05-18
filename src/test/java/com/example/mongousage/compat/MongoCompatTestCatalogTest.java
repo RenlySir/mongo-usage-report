@@ -36,4 +36,16 @@ class MongoCompatTestCatalogTest {
             assertThat(document).contains("| `" + testCase.id() + "` |");
         }
     }
+
+    @Test
+    void everyCatalogCaseHasNumberedMongoshCommandReference() {
+        for (MongoCompatTestCase testCase : MongoCompatTestCatalog.cases()) {
+            assertThat(MongoCompatTestCaseReference.find(testCase.id()))
+                    .as(testCase.id())
+                    .hasValueSatisfying(reference -> {
+                        assertThat(reference.number()).isBetween(1, MongoCompatTestCatalog.cases().size());
+                        assertThat(reference.mongoshCommand()).isNotBlank();
+                    });
+        }
+    }
 }

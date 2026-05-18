@@ -89,7 +89,7 @@ java -jar target/mongo-usage-collector.jar collect \
 
 ## Automated compatibility test data and cases
 
-Use the separate `compat-test` command to create a temporary MongoDB test database, create schema and indexes, insert sample data, execute feature tests, then write `compat-test-report.json`. This command does not run the inventory/workload collector.
+Use the separate `compat-test` command to create a temporary MongoDB test database, create schema and indexes, insert sample data, execute feature tests, then write JSON and Excel test reports. This command does not run the inventory/workload collector.
 
 ```bash
 java -jar target/mongo-usage-collector.jar compat-test \
@@ -102,6 +102,16 @@ java -jar target/mongo-usage-collector.jar compat-test \
 The compatibility test catalog is maintained in code at `MongoCompatTestCatalog`. It currently runs 120 numbered checks covering JSON schema validation, CRUD, query operators, indexes, aggregation stages and expressions, admin commands, BSON data types, transactions, and change streams. Transactions and change streams are marked `SKIP` on standalone deployments where MongoDB itself requires a replica set or sharded cluster.
 
 The full test case list is documented in `test_case.md`. Each row includes the test number, test ID, category, and the corresponding MongoDB shell command or equivalent command sequence.
+
+Output:
+
+```text
+mongo-usage-report/
+  compat-test-report.json     # full machine-readable compatibility test result
+  compat-test-results.xlsx    # Excel workbook for delivery and review
+```
+
+The Excel workbook contains `Summary` and `Test Results` sheets. The `Test Results` sheet includes the numbered case ID, category, test name, corresponding mongosh command or equivalent command sequence, status (`PASS`, `FAIL`, `SKIP`), success flag, elapsed milliseconds, and failure or skip reason.
 
 By default the temporary test database is dropped after the run. Add `--keep-compat-db` when you want to inspect the generated schema and sample data manually.
 
