@@ -2,7 +2,7 @@
 
 本文档记录 2026-05-18 在附件服务器上部署 MongoDB v4/v5/v6/v7 的 Replica Set 与 Sharding 测试集群的实际命令、连接信息和 `compat-test` 验证结果。
 
-> 安全说明：服务器账号密码来自本地附件 `/Users/lan/Downloads/machineinfo`，本文档不记录明文密码。当前已在可登录服务器写入本机 SSH 公钥，后续管理优先使用 SSH key。
+> 安全说明：服务器账号密码来自本地附件 `/Users/lan/Downloads/machineinfo`，本文档不记录服务器明文密码。部署后的 MongoDB 测试集群账号密码可以在本文档中明文记录；当前 8 套测试集群未启用 MongoDB auth，MongoDB 用户名和密码均为“无”。
 
 ## 服务器状态
 
@@ -15,13 +15,24 @@
 
 ## 部署规划
 
-所有集群均使用 Docker/Podman host network，避免容器内副本集地址与外部客户端地址不一致。测试集群未启用认证，仅用于兼容性测试和工具验证，不建议暴露到生产网络。
+所有集群均使用 Docker/Podman host network，避免容器内副本集地址与外部客户端地址不一致。当前测试集群未启用 MongoDB auth，仅用于兼容性测试和工具验证，不建议暴露到生产网络。
 
 数据目录统一放在远端：
 
 ```bash
 /data/mongo-usage-report-lab
 ```
+
+## MongoDB 认证信息
+
+当前部署命令未增加 `--auth`、`MONGO_INITDB_ROOT_USERNAME` 或 `MONGO_INITDB_ROOT_PASSWORD`，因此 8 套 MongoDB 测试集群均不需要账号密码即可连接。
+
+| 集群范围 | MongoDB 用户名 | MongoDB 密码 | authSource | 认证机制 | 说明 |
+|---|---|---|---|---|---|
+| v4.4/v5.0/v6.0/v7.0 Replica Set | 无 | 无 | 无 | 无 | 未启用 MongoDB auth |
+| v4.4/v5.0/v6.0/v7.0 Sharding | 无 | 无 | 无 | 无 | 未启用 MongoDB auth |
+
+如果后续重新部署为启用认证的测试集群，可以直接在本节明文记录 MongoDB 管理员账号、密码、`authSource` 和认证机制。
 
 ### Replica Set 集群
 
@@ -277,4 +288,3 @@ target/remote-compat/v70-sharded/compat-test-results.xlsx
 | v5.0 Sharding | 120 | 118 | 2 | mongos 层不支持 `getParameter.featureCompatibilityVersion` 和 `top` |
 | v6.0 Sharding | 120 | 118 | 2 | mongos 层不支持 `getParameter.featureCompatibilityVersion` 和 `top` |
 | v7.0 Sharding | 120 | 118 | 2 | mongos 层不支持 `getParameter.featureCompatibilityVersion` 和 `top` |
-
