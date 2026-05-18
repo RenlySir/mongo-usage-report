@@ -99,7 +99,9 @@ java -jar target/mongo-usage-collector.jar compat-test \
   --compat-db mongo_usage_compat_test
 ```
 
-The compatibility test catalog is maintained in code at `MongoCompatTestCatalog`. It covers JSON schema validation, validation rejection, CRUD lifecycle, bulk writes, filter/sort/projection queries, array and nested predicates, compound/unique/TTL indexes, hint and explain, aggregation `$group` / `$lookup` / `$facet`, transactions, change streams, and read-only admin commands. Transactions and change streams are marked `SKIP` on standalone deployments where MongoDB itself requires a replica set or sharded cluster.
+The compatibility test catalog is maintained in code at `MongoCompatTestCatalog`. It currently runs 120 numbered checks covering JSON schema validation, CRUD, query operators, indexes, aggregation stages and expressions, admin commands, BSON data types, transactions, and change streams. Transactions and change streams are marked `SKIP` on standalone deployments where MongoDB itself requires a replica set or sharded cluster.
+
+The full test case list is documented in `test_case.md`. Each row includes the test number, test ID, category, and the corresponding MongoDB shell command or equivalent command sequence.
 
 By default the temporary test database is dropped after the run. Add `--keep-compat-db` when you want to inspect the generated schema and sample data manually.
 
