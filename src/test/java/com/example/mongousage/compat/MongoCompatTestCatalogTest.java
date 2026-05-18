@@ -19,12 +19,21 @@ class MongoCompatTestCatalogTest {
                         "changeStream",
                         "command");
 
-        assertThat(MongoCompatTestCatalog.cases()).hasSizeGreaterThanOrEqualTo(100);
+        assertThat(MongoCompatTestCatalog.cases()).hasSizeGreaterThanOrEqualTo(170);
 
         assertThat(MongoCompatTestCatalog.cases())
                 .extracting(MongoCompatTestCase::id)
                 .doesNotHaveDuplicates()
-                .contains("schema-json-validator", "crud-bulk-write", "aggregation-lookup", "transaction-commit");
+                .contains(
+                        "schema-json-validator",
+                        "crud-bulk-write",
+                        "query-expr",
+                        "update-array-filter",
+                        "geospatial-near",
+                        "collection-timeseries",
+                        "aggregation-set-window-fields",
+                        "transaction-abort",
+                        "change-stream-pipeline");
     }
 
     @Test
@@ -43,7 +52,7 @@ class MongoCompatTestCatalogTest {
             assertThat(MongoCompatTestCaseReference.find(testCase.id()))
                     .as(testCase.id())
                     .hasValueSatisfying(reference -> {
-                        assertThat(reference.number()).isBetween(1, MongoCompatTestCatalog.cases().size());
+                        assertThat(reference.number()).isEqualTo(MongoCompatTestCatalog.cases().indexOf(testCase) + 1);
                         assertThat(reference.mongoshCommand()).isNotBlank();
                     });
         }

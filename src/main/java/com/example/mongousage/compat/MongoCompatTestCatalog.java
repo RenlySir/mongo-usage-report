@@ -18,12 +18,19 @@ public final class MongoCompatTestCatalog {
         schema(cases);
         crud(cases);
         query(cases);
+        update(cases);
         index(cases);
         aggregation(cases);
+        collection(cases);
         command(cases);
         datatype(cases);
+        geospatial(cases);
         add(cases, "transaction-commit", "transaction", "Transaction commit", "Attempts a multi-document transaction when the deployment supports sessions.");
+        add(cases, "transaction-abort", "transaction", "Transaction abort", "Verifies abortTransaction rolls back writes.");
+        add(cases, "transaction-read-your-writes", "transaction", "Transaction read-your-writes", "Reads writes made inside the same transaction before commit.");
         add(cases, "change-stream-open", "changeStream", "Change stream open", "Attempts to open a change stream when the deployment supports it.");
+        add(cases, "change-stream-pipeline", "changeStream", "Change stream pipeline", "Opens a change stream with a $match pipeline.");
+        add(cases, "change-stream-full-document", "changeStream", "Change stream fullDocument", "Requests fullDocument update lookup on a change stream.");
         return List.copyOf(cases);
     }
 
@@ -69,10 +76,27 @@ public final class MongoCompatTestCatalog {
                 {"query-type", "$type"}, {"query-regex", "$regex"}, {"query-all", "$all"}, {"query-size", "$size"},
                 {"query-elem-match", "$elemMatch"}, {"query-dot-path", "dot path"}, {"query-not", "$not"}, {"query-mod", "$mod"},
                 {"query-date-range", "date range"}, {"query-sort-ascending", "sort ascending"}, {"query-sort-descending", "sort descending"},
-                {"query-skip-limit", "skip and limit"}
+                {"query-skip-limit", "skip and limit"}, {"query-expr", "$expr"}, {"query-json-schema", "$jsonSchema"},
+                {"query-bits-all-set", "$bitsAllSet"}, {"query-bits-any-clear", "$bitsAnyClear"}, {"query-where", "$where"},
+                {"query-collation-case-insensitive", "case-insensitive collation"}, {"query-natural-sort", "$natural sort"},
+                {"query-min-max", "min/max index bounds"}
         };
         for (String[] item : items) {
             add(cases, item[0], "query", item[1], "Exercises " + item[1] + " query behavior.");
+        }
+    }
+
+    private static void update(List<MongoCompatTestCase> cases) {
+        String[][] items = {
+                {"update-inc", "$inc"}, {"update-mul", "$mul"}, {"update-min", "$min"}, {"update-max", "$max"},
+                {"update-rename", "$rename"}, {"update-unset", "$unset"}, {"update-current-date", "$currentDate"},
+                {"update-add-to-set", "$addToSet"}, {"update-push-each-sort-slice", "$push $each $sort $slice"},
+                {"update-pull", "$pull"}, {"update-pop", "$pop"}, {"update-bit", "$bit"},
+                {"update-array-filter", "arrayFilters"}, {"update-positional", "positional $ update"},
+                {"update-pipeline", "aggregation pipeline update"}
+        };
+        for (String[] item : items) {
+            add(cases, item[0], "update", item[1], "Exercises update operator or update mode " + item[1] + ".");
         }
     }
 
@@ -100,10 +124,24 @@ public final class MongoCompatTestCatalog {
         String[] stages = {
                 "match", "project", "add-fields", "set", "unset", "limit", "skip", "sort", "count",
                 "group-avg", "group-min", "group-max", "group-addToSet", "group-push", "unwind", "bucket",
-                "sort-by-count", "replace-root", "sample", "date-to-string", "cond", "if-null"
+                "sort-by-count", "replace-root", "sample", "date-to-string", "cond", "if-null",
+                "map", "filter", "reduce", "to-decimal", "convert", "regex-match", "date-trunc",
+                "union-with", "graph-lookup", "out", "merge", "set-window-fields"
         };
         for (String stage : stages) {
             add(cases, "aggregation-" + stage, "aggregation", "$" + stage, "Exercises aggregation stage or expression $" + stage + ".");
+        }
+    }
+
+    private static void collection(List<MongoCompatTestCase> cases) {
+        String[][] items = {
+                {"collection-create-view", "view"}, {"collection-rename", "renameCollection"},
+                {"collection-capped", "capped collection"}, {"collection-timeseries", "time series collection"},
+                {"collection-collmod-validator", "collMod validator"}, {"collection-collmod-index-hidden", "hidden index"},
+                {"collection-list-search-indexes-command", "listSearchIndexes command"}
+        };
+        for (String[] item : items) {
+            add(cases, item[0], "collection", item[1], "Exercises collection-level feature " + item[1] + ".");
         }
     }
 
@@ -111,7 +149,9 @@ public final class MongoCompatTestCatalog {
         add(cases, "command-buildinfo-serverstatus", "command", "Admin commands", "Exercises buildInfo and serverStatus read-only commands.");
         String[] commands = {
                 "ping", "hello", "listdatabases", "connectionstatus", "dbstats", "collstats", "hostinfo",
-                "getcmdlineopts", "getparameter-fcv", "currentop", "top", "profile-get", "listcommands"
+                "getcmdlineopts", "getparameter-fcv", "currentop", "top", "profile-get", "listcommands",
+                "usersinfo", "rolesinfo", "replset-get-status", "list-shards", "get-default-rw-concern",
+                "validate", "plan-cache-clear", "plan-cache-list"
         };
         for (String command : commands) {
             add(cases, "command-" + command, "command", command, "Runs the " + command + " command or equivalent diagnostic command.");
@@ -120,10 +160,21 @@ public final class MongoCompatTestCatalog {
 
     private static void datatype(List<MongoCompatTestCase> cases) {
         String[] types = {
-                "string", "int32", "int64", "double", "decimal128", "boolean", "date", "array", "document", "null", "objectid", "binary"
+                "string", "int32", "int64", "double", "decimal128", "boolean", "date", "array", "document", "null", "objectid", "binary",
+                "timestamp", "regex", "min-key", "max-key"
         };
         for (String type : types) {
             add(cases, "datatype-" + type, "datatype", type, "Inserts and reads a BSON " + type + " value.");
+        }
+    }
+
+    private static void geospatial(List<MongoCompatTestCase> cases) {
+        String[][] items = {
+                {"geospatial-2dsphere-index", "2dsphere index"}, {"geospatial-geo-within", "$geoWithin"},
+                {"geospatial-near", "$near"}, {"geospatial-geo-intersects", "$geoIntersects"}
+        };
+        for (String[] item : items) {
+            add(cases, item[0], "geospatial", item[1], "Exercises geospatial feature " + item[1] + ".");
         }
     }
 

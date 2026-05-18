@@ -179,7 +179,7 @@ java -jar target/mongo-usage-collector.jar compat-test \
   --compat-db mongo_usage_compat_test
 ```
 
-The compatibility test catalog is maintained in code at `MongoCompatTestCatalog`. It currently runs 120 numbered checks covering JSON schema validation, CRUD, query operators, indexes, aggregation stages and expressions, admin commands, BSON data types, transactions, and change streams. Transactions and change streams are marked `SKIP` on standalone deployments where MongoDB itself requires a replica set or sharded cluster.
+The compatibility test catalog is maintained in code at `MongoCompatTestCatalog`. It currently runs 182 numbered checks covering JSON schema validation, CRUD, query operators, update operators, indexes, aggregation stages and expressions, collection-level features, admin commands, BSON data types, geospatial queries, transactions, and change streams. Deployment-specific capabilities such as transactions/change streams on standalone nodes, mongos-only commands, Atlas Search commands, or disabled JavaScript `$where` execution are marked `SKIP` when MongoDB reports that the feature is not available in the current environment.
 
 The full test case list is documented in `test_case.md`. Each row includes the test number, test ID, category, and the corresponding MongoDB shell command or equivalent command sequence.
 
