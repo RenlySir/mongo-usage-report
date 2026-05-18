@@ -1,13 +1,20 @@
 package com.example.mongousage;
 
 import com.example.mongousage.config.CollectorOptions;
+import com.example.mongousage.compat.MongoCompatTestReport;
+import com.example.mongousage.compat.MongoCompatTestRunner;
+import com.example.mongousage.io.CompatTestJsonWriter;
 import com.example.mongousage.io.CollectExcelWriter;
 import com.example.mongousage.io.CollectJsonWriter;
 import com.example.mongousage.model.UsageReport;
 import com.example.mongousage.mongo.MongoCollector;
+import com.mongodb.client.MongoClients;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.ParameterException;
+import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Spec;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -18,13 +25,17 @@ import java.util.concurrent.Callable;
         name = "mongo-usage-collector",
         mixinStandardHelpOptions = true,
         version = "mongo-usage-collector 0.1.0",
-        description = "Collect MongoDB inventory and workload signals (Excel output)."
+        description = "Collect MongoDB inventory and workload signals (Excel output).",
+        subcommands = MongoUsageCollectorApp.CompatTestCommand.class
 )
 public class MongoUsageCollectorApp implements Callable<Integer> {
-    @Option(names = "--uri", description = "MongoDB connection string.", required = true)
+    @Spec
+    private CommandSpec spec;
+
+    @Option(names = "--uri", description = "MongoDB connection string.")
     private String uri;
 
-    @Option(names = "--mongo-version", description = "MongoDB server version family to target. Supported: 4, 4.4, 5, 6, 6.0.7, 6.2, 7.", required = true)
+    @Option(names = "--mongo-version", description = "MongoDB server version family to target. Supported: 4, 4.4, 5, 6, 6.0.7, 6.2, 7.")
     private String mongoVersion;
 
     @Option(names = "--out", description = "Output directory.", defaultValue = "mongo-usage-report")
@@ -58,6 +69,8 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
+        requireRootOption(uri, "--uri");
+        requireRootOption(mongoVersion, "--mongo-version");
         CollectorOptions options = toOptions();
         UsageReport report = new MongoCollector(options).collect();
         new CollectJsonWriter().write(report, outputDirectory);
@@ -80,5 +93,46 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
         options.setSlowMs(slowMs);
         options.setRedact(redact);
         return options;
+    }
+
+    private void requireRootOption(String value, String optionName) {
+        if (value == null || value.isBlank()) {
+            throw new ParameterException(spec.commandLine(), "Missing required option: " + optionName);
+        }
+    }
+
+    @Command(
+            name = "compat-test",
+            mixinStandardHelpOptions = true,
+            description = "Create MongoDB test schema/data and run feature compatibility tests only."
+    )
+    static class CompatTestCommand implements Callable<Integer> {
+        @Option(names = "--uri", description = "MongoDB connection string.", required = true)
+        private String uri;
+
+        @Option(names = "--mongo-version", description = "MongoDB server version family to label in output.", required = true)
+        private String mongoVersion;
+
+        @Option(names = "--out", description = "Output directory.", defaultValue = "mongo-compat-test-report")
+        private Path outputDirectory;
+
+        @Option(names = "--compat-db", description = "Database used by compatibility tests.", defaultValue = "mongo_usage_compat_test")
+        private String compatDatabase;
+
+        @Option(names = "--keep-compat-db", description = "Keep compatibility test database after the run.")
+        private boolean keepCompatDatabase;
+
+        @Override
+        public Integer call() throws Exception {
+            try (var client = MongoClients.create(uri)) {
+                MongoCompatTestReport compatReport = new MongoCompatTestRunner(client, compatDatabase, !keepCompatDatabase, mongoVersion).run();
+                new CompatTestJsonWriter().write(compatReport, outputDirectory);
+                Path reportFile = outputDirectory.resolve("compat-test-report.json");
+                System.out.printf("MongoDB compatibility test report written to %s%n", reportFile.toAbsolutePath());
+                System.out.printf("Compatibility tests: total=%d, passed=%d, failed=%d, skipped=%d%n",
+                        compatReport.total(), compatReport.passed(), compatReport.failed(), compatReport.skipped());
+                return compatReport.isSuccess() ? 0 : 2;
+            }
+        }
     }
 }

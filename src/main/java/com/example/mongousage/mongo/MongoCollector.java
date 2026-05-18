@@ -49,7 +49,7 @@ public class MongoCollector {
             report.setHello(runHello(report, admin));
             report.setServerStatus(runCommand(report, "admin", "serverStatus", admin, new Document("serverStatus", 1)));
             report.setConnectionStatus(runCommand(report, "admin", "connectionStatus", admin, new Document("connectionStatus", 1).append("showPrivileges", false)));
-            if (capabilities.supportsDefaultReadWriteConcern()) {
+            if (capabilities.supportsDefaultReadWriteConcern() && isDistributedDeployment(report.getHello())) {
                 report.setDefaultReadWriteConcern(runCommand(report, "admin", "getDefaultRWConcern", admin, new Document("getDefaultRWConcern", 1)));
             }
             report.setDeploymentInfo(collectDeployment(report, admin));
@@ -97,15 +97,23 @@ public class MongoCollector {
         }
         info.setAtlasHint(atlasHint(report));
         info.setFeatureCompatibilityVersion(featureCompatibilityVersion(report, admin));
-        info.setReplSetStatus(runCommand(report, "admin", "replSetGetStatus", admin, new Document("replSetGetStatus", 1)));
-        info.setShardList(runCommand(report, "admin", "listShards", admin, new Document("listShards", 1)));
-        if (!info.getShardList().isEmpty()) {
-            info.setDeploymentMode("sharded");
-            info.setSharded(true);
+        if ("replicaSet".equals(info.getDeploymentMode())) {
+            info.setReplSetStatus(runCommand(report, "admin", "replSetGetStatus", admin, new Document("replSetGetStatus", 1)));
+        }
+        if (info.isSharded()) {
+            info.setShardList(runCommand(report, "admin", "listShards", admin, new Document("listShards", 1)));
+            if (!info.getShardList().isEmpty()) {
+                info.setDeploymentMode("sharded");
+                info.setSharded(true);
+            }
         }
         info.setGetCmdLineOpts(runCommand(report, "admin", "getCmdLineOpts", admin, new Document("getCmdLineOpts", 1)));
         info.setHostInfo(runCommand(report, "admin", "hostInfo", admin, new Document("hostInfo", 1)));
         return info;
+    }
+
+    static boolean isDistributedDeployment(Document hello) {
+        return hello != null && (hello.getString("setName") != null || "isdbgrid".equals(hello.getString("msg")));
     }
 
     private String featureCompatibilityVersion(UsageReport report, MongoDatabase admin) {
@@ -167,9 +175,7 @@ public class MongoCollector {
     private void collectCurrentOperations(UsageReport report, MongoDatabase admin) {
         List<Document> operations = new ArrayList<>();
         if (capabilities.useCurrentOpAggregation()) {
-            operations = runAdminAggregation(report, admin,
-                    List.of(new Document("$currentOp", new Document("active", true).append("allUsers", false))),
-                    "$currentOp");
+            operations = runAdminAggregation(report, admin, currentOpAggregationPipeline(), "$currentOp");
         }
         if (!capabilities.useCurrentOpAggregation() || operations.isEmpty()) {
             Document currentOp = runCommand(report, "admin", "currentOp", admin,
@@ -195,17 +201,27 @@ public class MongoCollector {
         }
     }
 
+    static List<Document> currentOpAggregationPipeline() {
+        return List.of(
+                new Document("$currentOp", new Document("allUsers", false)),
+                new Document("$match", new Document("active", true)));
+    }
+
     private List<Document> collectNamespaceUsage(UsageReport report, MongoDatabase admin) {
         Document top = runCommand(report, "admin", "top", admin, new Document("top", 1));
+        return toNamespaceUsageRows(top);
+    }
+
+    static List<Document> toNamespaceUsageRows(Document top) {
         Document totals = top.get("totals", Document.class);
         if (totals == null) {
             return new ArrayList<>();
         }
         List<Document> rows = new ArrayList<>();
         for (String namespace : totals.keySet()) {
-            Document usage = totals.get(namespace, Document.class);
-            if (usage != null) {
-                rows.add(new Document("namespace", namespace).append("usage", maybeRedact(usage)));
+            Object usage = totals.get(namespace);
+            if (usage instanceof Document usageDocument) {
+                rows.add(new Document("namespace", namespace).append("usage", usageDocument));
             }
         }
         return rows;
@@ -296,8 +312,14 @@ public class MongoCollector {
         MongoCollection<Document> collection = database.getCollection(collectionName);
         collectionInfo.setStats(runCommand(report, collectionInfo.getNamespace(), "collStats", database, new Document("collStats", collectionName)));
         collectionInfo.setIndexes(listIndexes(report, collectionInfo, collection));
-        collectionInfo.setIndexStats(runAggregation(report, collectionInfo, collection, new Document("$indexStats", new Document()), "$indexStats"));
-        collectionInfo.setPlanCacheStats(runAggregation(report, collectionInfo, collection, new Document("$planCacheStats", new Document()), "$planCacheStats"));
+        if (shouldCollectCollectionAggregations(collectionName)) {
+            collectionInfo.setIndexStats(runAggregation(report, collectionInfo, collection, new Document("$indexStats", new Document()), "$indexStats"));
+            collectionInfo.setPlanCacheStats(runAggregation(report, collectionInfo, collection, new Document("$planCacheStats", new Document()), "$planCacheStats"));
+        }
+    }
+
+    static boolean shouldCollectCollectionAggregations(String collectionName) {
+        return collectionName != null && !collectionName.startsWith("system.");
     }
 
     private List<IndexInfo> listIndexes(UsageReport report, CollectionInfo collectionInfo, MongoCollection<Document> collection) {

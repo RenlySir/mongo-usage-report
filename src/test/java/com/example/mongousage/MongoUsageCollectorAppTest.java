@@ -22,4 +22,18 @@ class MongoUsageCollectorAppTest {
         assertThat(out.toString()).contains("--uri");
         assertThat(out.toString()).contains("--mongo-version");
     }
+
+    @Test
+    void compatTestHelpIsSeparateSubcommand() {
+        StringWriter out = new StringWriter();
+        CommandLine commandLine = new CommandLine(new MongoUsageCollectorApp());
+        commandLine.setOut(new PrintWriter(out));
+
+        int exitCode = commandLine.execute("compat-test", "--help");
+
+        assertThat(exitCode).isZero();
+        assertThat(out.toString()).contains("compat-test");
+        assertThat(out.toString()).contains("--compat-db");
+        assertThat(out.toString()).contains("--keep-compat-db");
+    }
 }

@@ -77,6 +77,22 @@ java -jar target/mongo-usage-collector.jar \
   --slow-ms 50
 ```
 
+## Compatibility test mode
+
+Use the separate `compat-test` command to create a temporary MongoDB test database, create schema and indexes, insert sample data, execute feature tests, then write `compat-test-report.json`. This command does not run the inventory/workload collector.
+
+```bash
+java -jar target/mongo-usage-collector.jar compat-test \
+  --mongo-version 7 \
+  --uri "mongodb://user:password@host:27017/admin?authSource=admin" \
+  --out ./mongo-usage-report \
+  --compat-db mongo_usage_compat_test
+```
+
+The compatibility test catalog is maintained in code at `MongoCompatTestCatalog`. It covers JSON schema validation, validation rejection, CRUD lifecycle, bulk writes, filter/sort/projection queries, array and nested predicates, compound/unique/TTL indexes, hint and explain, aggregation `$group` / `$lookup` / `$facet`, transactions, change streams, and read-only admin commands. Transactions and change streams are marked `SKIP` on standalone deployments where MongoDB itself requires a replica set or sharded cluster.
+
+By default the temporary test database is dropped after the run. Add `--keep-compat-db` when you want to inspect the generated schema and sample data manually.
+
 ## Options
 
 ```text
@@ -86,6 +102,17 @@ java -jar target/mongo-usage-collector.jar \
 --exclude-dbs db1,db2      Skip listed databases. Defaults to local.
 --sample-limit 1000        Max existing system.profile rows per database.
 --redact / --no-redact     Redact sensitive command fields. Defaults to enabled.
+```
+
+`compat-test` options:
+
+```text
+--mongo-version 4|4.4|5|6|6.0.7|6.2|7
+                          Required. Version label written into the test report.
+--uri mongodb://...        Required. MongoDB connection string.
+--out ./dir                Output directory. Defaults to mongo-compat-test-report.
+--compat-db name           Database used by compatibility tests. Defaults to mongo_usage_compat_test.
+--keep-compat-db           Keep the compatibility test database after the run.
 ```
 
 ## Version-specific behavior
