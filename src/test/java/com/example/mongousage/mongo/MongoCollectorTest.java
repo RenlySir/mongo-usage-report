@@ -22,6 +22,13 @@ class MongoCollectorTest {
     }
 
     @Test
+    void ignoresMalformedTopTotalsPayload() {
+        Document top = new Document("totals", "all times in microseconds");
+
+        assertThat(MongoCollector.toNamespaceUsageRows(top)).isEmpty();
+    }
+
+    @Test
     void collectsDefaultReadWriteConcernOnlyForReplicaSetsAndMongos() {
         assertThat(MongoCollector.isDistributedDeployment(new Document("isWritablePrimary", true))).isFalse();
         assertThat(MongoCollector.isDistributedDeployment(new Document("setName", "rs0"))).isTrue();

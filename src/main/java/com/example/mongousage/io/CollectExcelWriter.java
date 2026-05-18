@@ -82,14 +82,24 @@ public class CollectExcelWriter {
         Sheet sheet = workbook.createSheet("Deployment");
         int row = 0;
         row = keyValue(sheet, row, "Deployment Mode", report.getDeploymentInfo().getDeploymentMode(), keyStyle);
+        row = keyValue(sheet, row, "Hosting Type", report.getDeploymentInfo().getHostingType(), keyStyle);
+        row = keyValue(sheet, row, "Provider", report.getDeploymentInfo().getProvider(), keyStyle);
+        row = keyValue(sheet, row, "Managed Service", report.getDeploymentInfo().isManagedService(), keyStyle);
+        row = keyValue(sheet, row, "Process Type", report.getDeploymentInfo().getProcessType(), keyStyle);
+        row = keyValue(sheet, row, "Node Role", report.getDeploymentInfo().getNodeRole(), keyStyle);
         row = keyValue(sheet, row, "Replica Set Name", report.getDeploymentInfo().getReplicaSetName(), keyStyle);
+        row = keyValue(sheet, row, "Replica Set Member Count", report.getDeploymentInfo().getReplicaSetMemberCount(), keyStyle);
+        row = keyValue(sheet, row, "Replica Set Members", String.join(", ", report.getDeploymentInfo().getReplicaSetMembers()), keyStyle);
         row = keyValue(sheet, row, "Primary", report.getDeploymentInfo().getPrimary(), keyStyle);
         row = keyValue(sheet, row, "Hosts", String.join(", ", report.getDeploymentInfo().getHosts()), keyStyle);
         row = keyValue(sheet, row, "Arbiters", String.join(", ", report.getDeploymentInfo().getArbiters()), keyStyle);
         row = keyValue(sheet, row, "Sharded", report.getDeploymentInfo().isSharded(), keyStyle);
+        row = keyValue(sheet, row, "Shard Count", report.getDeploymentInfo().getShardCount(), keyStyle);
+        row = keyValue(sheet, row, "Shard Names", String.join(", ", report.getDeploymentInfo().getShardNames()), keyStyle);
         row = keyValue(sheet, row, "Atlas Hint", report.getDeploymentInfo().getAtlasHint(), keyStyle);
         row = keyValue(sheet, row, "Storage Engine", report.getDeploymentInfo().getStorageEngine(), keyStyle);
         row = keyValue(sheet, row, "Feature Compatibility Version", report.getDeploymentInfo().getFeatureCompatibilityVersion(), keyStyle);
+        row = keyValue(sheet, row, "Detection Signals", String.join(", ", report.getDeploymentInfo().getDeploymentSignals()), keyStyle);
         row++;
 
         writeHeader(sheet.createRow(row++), headerStyle, "Raw Item", "JSON");

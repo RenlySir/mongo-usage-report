@@ -39,7 +39,7 @@ The Excel workbook contains these sheets: `Overview`, `Deployment`, `Runtime Met
 
 ## What it collects
 
-- Deployment: standalone / replica set / sharding hints, replica set name, primary, hosts, arbiters, storage engine, FCV, `replSetGetStatus`, `listShards`, `getCmdLineOpts`, `hostInfo`, `connectionStatus`, `getDefaultRWConcern`.
+- Deployment: standalone / replica set / sharding / mongos hints, Atlas and common managed-compatible service hints, self-managed hints, provider, hosting type, process type, node role, replica set members, shard names, storage engine, FCV, `replSetGetStatus`, `listShards`, `getCmdLineOpts`, `hostInfo`, `connectionStatus`, `getDefaultRWConcern`.
 - Runtime and load: `serverStatus` connection counters, opcounters, network bytes, memory, WiredTiger cache where available.
 - Inventory: databases, collections, collection stats, indexes, index stats, plan cache stats, and namespace usage from `top` where supported.
 - Workload: existing `system.profile` rows, optional profiler sampling, and active operations from `$currentOp` with fallback to `currentOp`.
@@ -128,6 +128,17 @@ By default the temporary test database is dropped after the run. Add `--keep-com
 | 6.0.7 - 6.1.x | `hello`, with fallback to `isMaster` if needed | `getDefaultRWConcern` enabled | command-form `currentOp` | `$queryStats` attempted with a `1000` row limit | Adds query telemetry when the server exposes `$queryStats`; unavailable or unauthorized calls are recorded as command errors. |
 | 6.2.x - 7.x | `hello`, with fallback to `isMaster` if needed | `getDefaultRWConcern` enabled | prefers `$currentOp` aggregation, then falls back to command-form `currentOp` | `$queryStats` attempted with a `1000` row limit | Uses newer aggregation-based active-operation collection and includes `$queryStats` output when available. |
 
-Commands that are broadly useful across versions, such as `buildInfo`, `serverStatus`, `connectionStatus`, `replSetGetStatus`, `listShards`, `getCmdLineOpts`, `hostInfo`, `dbStats`, `collStats`, `listIndexes`, `$indexStats`, `$planCacheStats`, `top`, and existing `system.profile` reads, are attempted in all modes. If a command is unavailable because of MongoDB version, deployment type, managed-service restrictions, or permissions, the failure is recorded in both the Excel `Command Errors` sheet and `raw.json`; it does not abort the run.
+Commands that are broadly useful across versions, such as `buildInfo`, `serverStatus`, `connectionStatus`, `getCmdLineOpts`, `hostInfo`, `dbStats`, `collStats`, `listIndexes`, `$indexStats`, `$planCacheStats`, `top`, and existing `system.profile` reads, are attempted in all modes. Deployment-specific commands are gated by detected topology: `replSetGetStatus` is collected for replica sets, `listShards` for sharded/mongos deployments, and `getDefaultRWConcern` for distributed deployments. If a command is unavailable because of MongoDB version, deployment type, managed-service restrictions, or permissions, the failure is recorded in both the Excel `Command Errors` sheet and `raw.json`; it does not abort the run.
+
+## Deployment mode detection
+
+The collector classifies deployment information from low-cost metadata that is already collected: the redacted target URI, `hello` / `isMaster`, `serverStatus`, `buildInfo`, `getCmdLineOpts`, and `hostInfo`. The `Deployment` Excel sheet and `raw.json` include:
+
+- `deploymentMode`: `standalone`, `replicaSet`, `sharded`, or `unknown`.
+- `hostingType`: `self-managed`, `managed`, `managed-compatible`, or `unknown`.
+- `provider`: `self-managed`, `atlas`, `amazon-documentdb`, `azure-cosmosdb-mongodb`, `aliyun-mongodb`, `tencent-cloud-mongodb`, `huawei-cloud-mongodb`, or `unknown`.
+- `processType` and `nodeRole`: for example `mongod` / `primary`, `secondary`, `standalone`, or `mongos`.
+- Replica set and sharding details: member count, member state strings, shard count, and shard names when the server exposes them.
+- Detection signals: the concrete hints used for classification, so ambiguous compatible services can be reviewed manually.
 
 Use the actual target MongoDB version instead of always choosing the latest version. For MongoDB-compatible services, select the closest supported API level. If compatibility is uncertain, start with a lower compatible setting such as `--mongo-version 6` to avoid newer diagnostic commands, then rerun with `6.0.7`, `6.2`, or `7` only when those commands are expected to work.

@@ -12,9 +12,19 @@ public class DeploymentInfo {
     private List<String> hosts = new ArrayList<>();
     private List<String> arbiters = new ArrayList<>();
     private boolean sharded;
+    private boolean managedService;
+    private String hostingType = "unknown";
+    private String provider = "unknown";
+    private String processType = "";
+    private String nodeRole = "";
     private String atlasHint = "";
     private String storageEngine = "";
     private String featureCompatibilityVersion = "";
+    private int replicaSetMemberCount;
+    private int shardCount;
+    private List<String> replicaSetMembers = new ArrayList<>();
+    private List<String> shardNames = new ArrayList<>();
+    private List<String> deploymentSignals = new ArrayList<>();
     private Document replSetStatus = new Document();
     private Document shardList = new Document();
     private Document getCmdLineOpts = new Document();
@@ -68,6 +78,46 @@ public class DeploymentInfo {
         this.sharded = sharded;
     }
 
+    public boolean isManagedService() {
+        return managedService;
+    }
+
+    public void setManagedService(boolean managedService) {
+        this.managedService = managedService;
+    }
+
+    public String getHostingType() {
+        return hostingType;
+    }
+
+    public void setHostingType(String hostingType) {
+        this.hostingType = hostingType == null ? "unknown" : hostingType;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider == null ? "unknown" : provider;
+    }
+
+    public String getProcessType() {
+        return processType;
+    }
+
+    public void setProcessType(String processType) {
+        this.processType = processType == null ? "" : processType;
+    }
+
+    public String getNodeRole() {
+        return nodeRole;
+    }
+
+    public void setNodeRole(String nodeRole) {
+        this.nodeRole = nodeRole == null ? "" : nodeRole;
+    }
+
     public String getAtlasHint() {
         return atlasHint;
     }
@@ -90,6 +140,46 @@ public class DeploymentInfo {
 
     public void setFeatureCompatibilityVersion(String featureCompatibilityVersion) {
         this.featureCompatibilityVersion = featureCompatibilityVersion == null ? "" : featureCompatibilityVersion;
+    }
+
+    public int getReplicaSetMemberCount() {
+        return replicaSetMemberCount;
+    }
+
+    public void setReplicaSetMemberCount(int replicaSetMemberCount) {
+        this.replicaSetMemberCount = Math.max(replicaSetMemberCount, 0);
+    }
+
+    public int getShardCount() {
+        return shardCount;
+    }
+
+    public void setShardCount(int shardCount) {
+        this.shardCount = Math.max(shardCount, 0);
+    }
+
+    public List<String> getReplicaSetMembers() {
+        return replicaSetMembers;
+    }
+
+    public void setReplicaSetMembers(List<String> replicaSetMembers) {
+        this.replicaSetMembers = replicaSetMembers == null ? new ArrayList<>() : replicaSetMembers;
+    }
+
+    public List<String> getShardNames() {
+        return shardNames;
+    }
+
+    public void setShardNames(List<String> shardNames) {
+        this.shardNames = shardNames == null ? new ArrayList<>() : shardNames;
+    }
+
+    public List<String> getDeploymentSignals() {
+        return deploymentSignals;
+    }
+
+    public void setDeploymentSignals(List<String> deploymentSignals) {
+        this.deploymentSignals = deploymentSignals == null ? new ArrayList<>() : deploymentSignals;
     }
 
     public Document getReplSetStatus() {

@@ -74,21 +74,7 @@ public class MongoCollector {
     }
 
     private DeploymentInfo collectDeployment(UsageReport report, MongoDatabase admin) {
-        DeploymentInfo info = new DeploymentInfo();
-        Document hello = report.getHello();
-        if (hello.getString("setName") != null) {
-            info.setDeploymentMode("replicaSet");
-            info.setReplicaSetName(hello.getString("setName"));
-        } else if (hello.containsKey("msg") && String.valueOf(hello.get("msg")).toLowerCase().contains("mongos")) {
-            info.setDeploymentMode("sharded");
-            info.setSharded(true);
-        } else if (!hello.isEmpty()) {
-            info.setDeploymentMode("standalone");
-        }
-        info.setPrimary(hello.getString("primary"));
-        info.setHosts(strings(hello.get("hosts")));
-        info.setArbiters(strings(hello.get("arbiters")));
-        info.setSharded(info.isSharded() || "isdbgrid".equals(hello.getString("msg")));
+        DeploymentInfo info = DeploymentDetector.detectTopology(report.getHello(), report.getServerStatus());
 
         Document serverStatus = report.getServerStatus();
         Document storageEngine = serverStatus.get("storageEngine", Document.class);
@@ -99,6 +85,7 @@ public class MongoCollector {
         info.setFeatureCompatibilityVersion(featureCompatibilityVersion(report, admin));
         if ("replicaSet".equals(info.getDeploymentMode())) {
             info.setReplSetStatus(runCommand(report, "admin", "replSetGetStatus", admin, new Document("replSetGetStatus", 1)));
+            DeploymentDetector.enrichReplicaSetStatus(info, info.getReplSetStatus());
         }
         if (info.isSharded()) {
             info.setShardList(runCommand(report, "admin", "listShards", admin, new Document("listShards", 1)));
@@ -106,9 +93,12 @@ public class MongoCollector {
                 info.setDeploymentMode("sharded");
                 info.setSharded(true);
             }
+            DeploymentDetector.enrichShardList(info, info.getShardList());
         }
         info.setGetCmdLineOpts(runCommand(report, "admin", "getCmdLineOpts", admin, new Document("getCmdLineOpts", 1)));
         info.setHostInfo(runCommand(report, "admin", "hostInfo", admin, new Document("hostInfo", 1)));
+        DeploymentDetector.detectHosting(info, report.getTarget(), report.getBuildInfo(), report.getHello(),
+                report.getServerStatus(), info.getGetCmdLineOpts(), info.getHostInfo());
         return info;
     }
 
@@ -126,14 +116,6 @@ public class MongoCollector {
     private String atlasHint(UsageReport report) {
         String value = (report.getBuildInfo().toJson() + report.getHello().toJson() + report.getServerStatus().toJson()).toLowerCase();
         return value.contains("atlas") || value.contains("mongodb.net") ? "possible Atlas-managed deployment" : "";
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<String> strings(Object value) {
-        if (value instanceof List<?> list) {
-            return list.stream().map(String::valueOf).toList();
-        }
-        return new ArrayList<>();
     }
 
     private List<RuntimeMetric> collectRuntimeMetrics(UsageReport report) {
@@ -213,8 +195,8 @@ public class MongoCollector {
     }
 
     static List<Document> toNamespaceUsageRows(Document top) {
-        Document totals = top.get("totals", Document.class);
-        if (totals == null) {
+        Object totalsValue = top.get("totals");
+        if (!(totalsValue instanceof Document totals)) {
             return new ArrayList<>();
         }
         List<Document> rows = new ArrayList<>();
