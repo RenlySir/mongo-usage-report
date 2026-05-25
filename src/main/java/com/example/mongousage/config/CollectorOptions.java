@@ -15,6 +15,8 @@ public class CollectorOptions {
     private int profileSeconds = 300;
     private int slowMs = 50;
     private boolean redact = true;
+    private boolean parallelCollection;
+    private int parallelThreads = 4;
 
     public String getUri() {
         return uri;
@@ -94,5 +96,21 @@ public class CollectorOptions {
 
     public void setRedact(boolean redact) {
         this.redact = redact;
+    }
+
+    public boolean isParallelCollection() {
+        return parallelCollection;
+    }
+
+    public void setParallelCollection(boolean parallelCollection) {
+        this.parallelCollection = parallelCollection;
+    }
+
+    public int getParallelThreads() {
+        return parallelThreads;
+    }
+
+    public void setParallelThreads(int parallelThreads) {
+        this.parallelThreads = parallelThreads;
     }
 }

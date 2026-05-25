@@ -30,6 +30,13 @@ java -jar target/mongo-usage-collector.jar collect \
   --uri "mongodb://user:password@host:27017/admin?authSource=admin" \
   --out ./mongo-usage-report
 
+# For deployments with many databases, enable bounded parallel database collection.
+java -jar target/mongo-usage-collector.jar collect \
+  --mongo-version 7 \
+  --uri "mongodb://user:password@host:27017/admin?authSource=admin" \
+  --out ./mongo-usage-report \
+  --parallel --parallel-threads 8
+
 # 3. 基于 collect 结果生成汇总 Excel，不再连接 MongoDB
 java -jar target/mongo-usage-collector.jar summarize \
   --report-dir ./mongo-usage-report
@@ -92,6 +99,13 @@ java -jar target/mongo-usage-collector.jar collect \
   --mongo-version 7 \
   --uri "mongodb://user:password@host:27017/admin?authSource=admin" \
   --out ./mongo-usage-report
+
+# For deployments with many databases, enable bounded parallel database collection.
+java -jar target/mongo-usage-collector.jar collect \
+  --mongo-version 7 \
+  --uri "mongodb://user:password@host:27017/admin?authSource=admin" \
+  --out ./mongo-usage-report \
+  --parallel --parallel-threads 8
 ```
 
 Output:
@@ -211,6 +225,8 @@ By default the temporary test database is dropped after the run. Add `--keep-com
 --profile-seconds 300      Profiler sampling window when --enable-profiler is set.
 --slow-ms 50               Profiler slowms when --enable-profiler is set.
 --redact / --no-redact     Redact sensitive command fields. Defaults to enabled.
+--parallel / --no-parallel Collect per-database inventory concurrently. Defaults to disabled.
+--parallel-threads 4       Maximum worker threads for --parallel. Valid range: 1-32.
 ```
 
 `summarize` options:

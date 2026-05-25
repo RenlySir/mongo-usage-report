@@ -1,5 +1,8 @@
 package com.example.mongousage.mongo;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.example.mongousage.analysis.QueryShapeAnalyzer;
 import com.example.mongousage.config.CollectorOptions;
 import com.example.mongousage.model.CollectionInfo;
@@ -25,11 +28,14 @@ import org.bson.Document;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.mongodb.client.model.Sorts.descending;
 
 public class MongoCollector {
+    private static final Logger logger = LoggerFactory.getLogger(MongoCollector.class);
     private static final long DIAGNOSTIC_MAX_TIME_SECONDS = 10;
     private final CollectorOptions options;
     private final BsonRedactor redactor = new BsonRedactor();
@@ -63,11 +69,18 @@ public class MongoCollector {
             if (options.isEnableProfiler()) {
                 new ProfilerSampler(client, options, report).sample(databaseNames);
             }
-            for (String databaseName : databaseNames) {
-                if (!shouldCollectDatabase(databaseName)) {
-                    continue;
+            List<String> databasesToCollect = databaseNames.stream()
+                    .filter(this::shouldCollectDatabase)
+                    .collect(Collectors.toList());
+
+            if (options.isParallelCollection() && databasesToCollect.size() > 1) {
+                logger.info("Collecting {} databases in parallel with up to {} threads",
+                        databasesToCollect.size(), options.getParallelThreads());
+                report.getDatabases().addAll(collectDatabasesInParallel(report, client, databasesToCollect));
+            } else {
+                for (String databaseName : databasesToCollect) {
+                    report.getDatabases().add(collectDatabase(report, client, databaseName));
                 }
-                report.getDatabases().add(collectDatabase(report, client, databaseName));
             }
             report.setQueryShapes(new QueryShapeAnalyzer().analyze(report.getProfileSamples()));
         }
@@ -263,6 +276,34 @@ public class MongoCollector {
             report.getCommandErrors().add(new CommandError("cluster", "listDatabaseNames", e.getMessage()));
         }
         return names;
+    }
+
+    private List<DatabaseInfo> collectDatabasesInParallel(UsageReport report, MongoClient client, List<String> databaseNames) {
+        int parallelism = Math.max(1, Math.min(options.getParallelThreads(), databaseNames.size()));
+        ForkJoinPool pool = new ForkJoinPool(parallelism);
+        try {
+            List<DatabaseCollectionResult> results = pool.submit(() -> databaseNames.parallelStream()
+                    .map(databaseName -> collectDatabaseIsolated(client, databaseName))
+                    .toList()).join();
+            List<DatabaseInfo> databases = new ArrayList<>();
+            for (DatabaseCollectionResult result : results) {
+                databases.add(result.databaseInfo());
+                report.getProfileSamples().addAll(result.report().getProfileSamples());
+                report.getCommandErrors().addAll(result.report().getCommandErrors());
+                report.getSkippedDiagnostics().addAll(result.report().getSkippedDiagnostics());
+            }
+            return databases;
+        } finally {
+            pool.shutdown();
+        }
+    }
+
+    private DatabaseCollectionResult collectDatabaseIsolated(MongoClient client, String databaseName) {
+        UsageReport partialReport = new UsageReport();
+        return new DatabaseCollectionResult(collectDatabase(partialReport, client, databaseName), partialReport);
+    }
+
+    private record DatabaseCollectionResult(DatabaseInfo databaseInfo, UsageReport report) {
     }
 
     private boolean shouldCollectDatabase(String databaseName) {

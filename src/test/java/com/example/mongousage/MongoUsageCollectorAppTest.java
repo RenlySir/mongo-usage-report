@@ -40,6 +40,8 @@ class MongoUsageCollectorAppTest {
         assertThat(out.toString()).contains("--uri");
         assertThat(out.toString()).contains("--mongo-version");
         assertThat(out.toString()).contains("--enable-profiler");
+        assertThat(out.toString()).contains("--parallel");
+        assertThat(out.toString()).contains("--parallel-threads");
         assertThat(out.toString()).doesNotContain("--compat-db");
     }
 

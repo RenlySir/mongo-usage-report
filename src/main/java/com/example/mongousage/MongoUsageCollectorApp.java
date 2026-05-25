@@ -12,7 +12,10 @@ import com.example.mongousage.io.UsageSummaryExcelWriter;
 import com.example.mongousage.io.UsageSummaryHtmlWriter;
 import com.example.mongousage.model.UsageReport;
 import com.example.mongousage.mongo.MongoCollector;
+import com.example.mongousage.util.ValidationUtils;
 import com.mongodb.client.MongoClients;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -34,6 +37,8 @@ import java.util.concurrent.Callable;
         }
 )
 public class MongoUsageCollectorApp implements Callable<Integer> {
+    private static final Logger logger = LoggerFactory.getLogger(MongoUsageCollectorApp.class);
+
     public static void main(String[] args) {
         int exitCode = new CommandLine(new MongoUsageCollectorApp()).execute(args);
         System.exit(exitCode);
@@ -51,6 +56,7 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
             description = "Collect MongoDB inventory and workload signals only."
     )
     static class CollectCommand implements Callable<Integer> {
+        private static final Logger logger = LoggerFactory.getLogger(CollectCommand.class);
         @Option(names = "--uri", description = "MongoDB connection string.", required = true)
         private String uri;
 
@@ -81,15 +87,46 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
         @Option(names = "--redact", negatable = true, description = "Redact sensitive fields in sampled command documents.", defaultValue = "true")
         private boolean redact;
 
+        @Option(names = "--parallel", negatable = true, description = "Collect database information in parallel for faster processing on large deployments.", defaultValue = "false")
+        private boolean parallelCollection;
+
+        @Option(names = "--parallel-threads", description = "Number of parallel threads for database collection. Only used with --parallel.", defaultValue = "4")
+        private int parallelThreads;
+
         @Override
         public Integer call() throws Exception {
+            logger.info("Starting MongoDB usage collection");
+            validateInputs();
             CollectorOptions options = toOptions();
+            if (enableProfiler) {
+                logger.warn("Profiler sampling is enabled. This will temporarily modify profiling settings on the target MongoDB deployment.");
+            }
+            if (parallelCollection) {
+                logger.info("Parallel collection enabled with {} threads", parallelThreads);
+            }
             UsageReport report = new MongoCollector(options).collect();
             new CollectJsonWriter().write(report, outputDirectory);
             Path excelFile = outputDirectory.resolve("mongo-usage-report.xlsx");
             new CollectExcelWriter().write(report, excelFile);
+            logger.info("MongoDB usage Excel written to {}", excelFile.toAbsolutePath());
             System.out.printf("MongoDB usage Excel written to %s%n", excelFile.toAbsolutePath());
             return 0;
+        }
+
+        private void validateInputs() {
+            ValidationUtils.validateUri(uri);
+            ValidationUtils.validateMongoVersion(mongoVersion);
+            ValidationUtils.validateSampleLimit(sampleLimit);
+            if (enableProfiler) {
+                ValidationUtils.validateProfileSeconds(profileSeconds);
+                ValidationUtils.validateSlowMs(slowMs);
+            }
+            if (parallelCollection && parallelThreads < 1) {
+                throw new IllegalArgumentException("Parallel threads must be at least 1: " + parallelThreads);
+            }
+            if (parallelCollection && parallelThreads > 32) {
+                throw new IllegalArgumentException("Parallel threads too large (max 32): " + parallelThreads);
+            }
         }
 
         private CollectorOptions toOptions() {
@@ -104,6 +141,8 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
             options.setProfileSeconds(profileSeconds);
             options.setSlowMs(slowMs);
             options.setRedact(redact);
+            options.setParallelCollection(parallelCollection);
+            options.setParallelThreads(parallelThreads);
             return options;
         }
     }
@@ -114,6 +153,7 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
             description = "Create MongoDB test schema/data and run feature compatibility tests only."
     )
     static class CompatTestCommand implements Callable<Integer> {
+        private static final Logger logger = LoggerFactory.getLogger(CompatTestCommand.class);
         @Option(names = "--uri", description = "MongoDB connection string.", required = true)
         private String uri;
 
@@ -131,18 +171,28 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
 
         @Override
         public Integer call() throws Exception {
+            logger.info("Starting MongoDB compatibility tests");
+            validateInputs();
             try (var client = MongoClients.create(uri)) {
                 MongoCompatTestReport compatReport = new MongoCompatTestRunner(client, compatDatabase, !keepCompatDatabase, mongoVersion).run();
                 new CompatTestJsonWriter().write(compatReport, outputDirectory);
                 Path reportFile = outputDirectory.resolve("compat-test-report.json");
                 Path excelFile = outputDirectory.resolve("compat-test-results.xlsx");
                 new CompatTestExcelWriter().write(compatReport, excelFile);
+                logger.info("MongoDB compatibility test report written to {}", reportFile.toAbsolutePath());
+                logger.info("Compatibility tests: total={}, passed={}, failed={}, skipped={}",
+                        compatReport.total(), compatReport.passed(), compatReport.failed(), compatReport.skipped());
                 System.out.printf("MongoDB compatibility test report written to %s%n", reportFile.toAbsolutePath());
                 System.out.printf("MongoDB compatibility test Excel written to %s%n", excelFile.toAbsolutePath());
                 System.out.printf("Compatibility tests: total=%d, passed=%d, failed=%d, skipped=%d%n",
                         compatReport.total(), compatReport.passed(), compatReport.failed(), compatReport.skipped());
                 return compatReport.isSuccess() ? 0 : 2;
             }
+        }
+
+        private void validateInputs() {
+            ValidationUtils.validateUri(uri);
+            ValidationUtils.validateMongoVersion(mongoVersion);
         }
     }
 
@@ -152,6 +202,7 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
             description = "Read an existing collect output directory and generate summarized Excel and HTML reports."
     )
     static class SummarizeCommand implements Callable<Integer> {
+        private static final Logger logger = LoggerFactory.getLogger(SummarizeCommand.class);
         @Option(names = "--report-dir", description = "Directory produced by the collect command.", defaultValue = "mongo-usage-report")
         private Path reportDirectory;
 
@@ -163,12 +214,15 @@ public class MongoUsageCollectorApp implements Callable<Integer> {
 
         @Override
         public Integer call() throws Exception {
+            logger.info("Starting MongoDB usage report summarization");
             Path rawJson = reportDirectory.resolve("raw.json");
             Path summaryFile = outputFile == null ? reportDirectory.resolve("mongo-usage-summary.xlsx") : outputFile;
             Path htmlSummaryFile = htmlOutputFile == null ? reportDirectory.resolve("mongo-usage-summary.html") : htmlOutputFile;
             UsageReport report = new UsageReportJsonReader().read(rawJson);
             new UsageSummaryExcelWriter().write(report, summaryFile);
             new UsageSummaryHtmlWriter().write(report, htmlSummaryFile);
+            logger.info("MongoDB usage summary Excel written to {}", summaryFile.toAbsolutePath());
+            logger.info("MongoDB usage summary HTML written to {}", htmlSummaryFile.toAbsolutePath());
             System.out.printf("MongoDB usage summary Excel written to %s%n", summaryFile.toAbsolutePath());
             System.out.printf("MongoDB usage summary HTML written to %s%n", htmlSummaryFile.toAbsolutePath());
             return 0;
